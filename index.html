@@ -1344,6 +1344,29 @@ function showStoryStream(onChunk){
   if(typeof onChunk === "function") onChunk(append);
   return { node };
 }
+/* 本地兑底打字机流式：无 AI key 时也逐字渲染（返回 Promise，播完再继续） */
+function typeLocalText(text, speed){
+  speed = speed || 18; // 每字间隔 ms
+  return new Promise(resolve => {
+    const box = $("#storyBox");
+    if(!box){ resolve(); return; }
+    const node = document.createElement('div');
+    node.style.marginBottom = '10px';
+    box.appendChild(node);
+    box.scrollTop = box.scrollHeight;
+    let i = 0;
+    const timer = setInterval(() => {
+      if(i >= text.length){
+        clearInterval(timer);
+        resolve();
+        return;
+      }
+      node.textContent += text[i];
+      i++;
+      box.scrollTop = box.scrollHeight;
+    }, speed);
+  });
+}
 function showRollTag(result){
   const map = { crit:'<span class="roll crit">大成功</span>', success:'<span class="roll ok">成功</span>', fail:'<span class="roll fail">失败</span>', bad:'<span class="roll bad">大失败</span>' };
   const box = $("#storyBox");
@@ -1498,11 +1521,11 @@ async function doAct(optIdx){
     } catch(e){
       UI._streamAppend = null;
       text = pickLocalText(roll.result, opt);
-      showStory(text);
+      await typeLocalText(text);
     }
   } else {
     text = pickLocalText(roll.result, opt);
-    showStory(text);
+    await typeLocalText(text);
   }
   if(lustGain > 0) showStory('💜 淫欲值 +' + lustGain + '（她欲望上升带来的反馈）');
   // 记录角色卡记忆 + 里程碑
@@ -1623,11 +1646,11 @@ async function encounter(){
     } catch(e){
       UI._streamAppend = null;
       text = "你在" + scene + "注意到一个身影——" + ng.name + "。" + ng.personality + "你们打了个照面，算是认识了。";
-      showStory(text);
+      await typeLocalText(text);
     }
   } else {
     text = "你在" + scene + "注意到一个身影——" + ng.name + "。" + ng.personality + "你们打了个照面，算是认识了。";
-    showStory(text);
+    await typeLocalText(text);
   }
   showStory('📌 ' + ng.name + ' 已进入关系网（未定性），你可以在关系网中决定她的定位。');
   checkMilestones(ng);
@@ -1686,11 +1709,11 @@ async function encounterFriend(){
     } catch(e){
       UI._streamAppend = null;
       text = "在" + scene + "，你认识了" + name + "（" + role + "），聊了几句，算是朋友了。";
-      showStory(text);
+      await typeLocalText(text);
     }
   } else {
     text = "在" + scene + "，你认识了" + name + "（" + role + "），聊了几句，算是朋友了。";
-    showStory(text);
+    await typeLocalText(text);
   }
   showStory('👥 新朋友：' + name + '（' + role + '）已加入你的人际圈。');
 }
