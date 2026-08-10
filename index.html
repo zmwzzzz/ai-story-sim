@@ -689,7 +689,7 @@ function ensureStateCompat(){
   if(!STATE.hardware) STATE.hardware = { len: CONFIG.hardware.len.init, girth: CONFIG.hardware.girth.init, dura: CONFIG.hardware.dura.init };
   if(!STATE.assets) STATE.assets = { car: [], house: [], luxury: [] };
   if(!STATE.shopState) STATE.shopState = { day: 0, items: [], assets: { car: [], house: [], luxury: [] }, manualItemRefreshes: 0, manualAssetRefreshes: 0 };
-  if(!STATE.friends || !STATE.friends.length) STATE.friends = generateFriends();
+  if(!STATE.friends) STATE.friends = [];   // 旧档兼容：无则空，激活时生成核心 2 人
   if(STATE.playerDeflowered === undefined) STATE.playerDeflowered = false;
   if(STATE.bound === undefined) STATE.bound = true; // 旧存档兼容：已有数据 = 已绑定
   // 角色卡记忆兼容
@@ -780,7 +780,7 @@ function defaultState(){
     girls,
     harem: [],                // 后宫成员 id
     metGirls: [],             // 已认识顺序
-    friends: generateFriends(), // 朋友/下属（随机名，无数值）
+    friends: [],               // 朋友/下属：开局空，激活系统后生成核心 2 人，其余靠邂逅
     virginConquered: 0,
     orgasmCount: 0,
     creampieCount: 0,
@@ -893,10 +893,10 @@ function nextFreeSlot(prefix, max){
   }
   return -1; // 满
 }
-function generateFriends(){
-  const count = CONFIG.friend_count.min + Math.floor(Math.random() * (CONFIG.friend_count.max - CONFIG.friend_count.min + 1));
+function generateFriends(count){
+  if(count === undefined) count = CONFIG.friend_count.min + Math.floor(Math.random() * (CONFIG.friend_count.max - CONFIG.friend_count.min + 1));
   const namePool = (typeof NAME_POOL !== "undefined") ? NAME_POOL.male : ["阿杰","阿强","小军","大伟","小凯"];
-  const usedNames = new Set();
+  const usedNames = new Set(Object.values(STATE ? STATE.girls : {}).map(g => g.name).filter(Boolean));
   const roles = shuffleArr(CONFIG.friend_roles);
   const friends = [];
   for(let i = 0; i < count; i++){
@@ -1255,6 +1255,10 @@ async function activateSystem(){
   STATE.bound = true;
   STATE.lust = CONFIG.lust.startValue;
   STATE.totalLustGain = CONFIG.lust.startValue;
+  // 激活后认识 2 个核心朋友（室友/同班等）
+  if(!STATE.friends || !STATE.friends.length){
+    STATE.friends = generateFriends(2);
+  }
   save();
   renderMain();
 }
@@ -2160,7 +2164,7 @@ function init(){
   if(!STATE.hardware) STATE.hardware = { len: CONFIG.hardware.len.init, girth: CONFIG.hardware.girth.init, dura: CONFIG.hardware.dura.init };
   if(!STATE.assets) STATE.assets = { car: [], house: [], luxury: [] };
   if(!STATE.shopState) STATE.shopState = { day: 0, items: [], assets: { car: [], house: [], luxury: [] }, manualItemRefreshes: 0, manualAssetRefreshes: 0 };
-  if(!STATE.friends || !STATE.friends.length) STATE.friends = generateFriends();
+  if(!STATE.friends) STATE.friends = [];   // 旧档兼容：无则空，激活时生成核心 2 人
   // 未定性标记：开局生成的女主/女配保持原样
   refreshDailyShop();
   renderMain();
