@@ -432,6 +432,69 @@ const CONFIG = {
     ],
   },
 
+  /* ---------- 剧情分支（跨回合剧情线） ----------
+   * 每个分支定义：触发条件（好感/欲望/约会次数/前置标记）+ 选项 + 写回标记
+   * g.flags 记录关系状态；flagsText() 把已触发的标记转为剧情描述注入 AI
+   */
+  branches: {
+    "表白": {
+      desc: "主动表白，确定关系",
+      condition: (g) => g.aff >= 60 && (g.flags.confessCount || 0) < 2,
+      opts: [
+        { label:"正式表白，认真说出心意", check:{attr:"tender",diff:55}, cost:2,
+          fx:{aff:10, mood:8}, aiHint:"真诚认真的表白，把这段时间的感情说清楚",
+          onSuccess:{ flag:"confessed", milestone:"第{day}天：你对{girl}正式表白了，她脸红了很久才点头。" },
+          onFail:{ flag:"confess_rejected", milestone:"第{day}天：你对{girl}表白，她说需要时间想想，气氛有些微妙。" } },
+        { label:"半开玩笑地表白，留退路", check:{attr:"wit",diff:60}, cost:2,
+          fx:{aff:6, lust:5}, aiHint:"用玩笑的语气试探，就算被拒也不至于尴尬",
+          onSuccess:{ flag:"confessed", milestone:"第{day}天：你用玩笑般的口吻说出了真心话，她笑着没否认。" },
+          onFail:{ flag:"confess_rejected", milestone:"第{day}天：你的玩笑表白被她当成了玩笑，气氛轻松但心意没传达到。" } },
+      ],
+    },
+    "挽回": {
+      desc: "挽回关系（表白被拒后出现）",
+      condition: (g) => g.flags.confess_rejected && (g.flags.reconcileCount || 0) < 1,
+      opts: [
+        { label:"不再逼她，先退回朋友位置", check:{attr:"tender",diff:50}, cost:1,
+          fx:{aff:5, mood:4}, aiHint:"退一步海阔天空，让她看到你的尊重",
+          onSuccess:{ flag:"reconciled", milestone:"第{day}天：你选择退回到朋友的位置，她的防备明显松动了。" } },
+        { label:"用行动证明心意，继续追", check:{attr:"bold",diff:65}, cost:2,
+          fx:{aff:8, lust:8, mood:-3}, aiHint:"不放弃但不过界，用持续的关心打动她",
+          onSuccess:{ flag:"reconciled", milestone:"第{day}天：你的坚持打动了她，她说愿意重新考虑你们的关系。" } },
+      ],
+    },
+    "确定关系": {
+      desc: "正式确定关系（已表白且好感高）",
+      condition: (g) => g.flags.confessed && !g.flags.dating && g.aff >= 70,
+      opts: [
+        { label:"戴上情侣信物，正式在一起", check:{attr:"tender",diff:55}, cost:2,
+          fx:{aff:12, mood:10}, aiHint:"给关系一个仪式感，正式成为恋人",
+          onSuccess:{ flag:"dating", milestone:"第{day}天：你和{girl}正式确定了恋爱关系，从今天起她是你女朋友。" } },
+      ],
+    },
+    "闹矛盾": {
+      desc: "关系中的摩擦（确定关系后概率触发）",
+      condition: (g) => g.flags.dating && g.mood < 45,
+      opts: [
+        { label:"主动低头，哄她开心", check:{attr:"tender",diff:55}, cost:1,
+          fx:{aff:6, mood:12}, aiHint:"放下架子先哄她，关系比对错重要",
+          onSuccess:{ flag:"reconciled2", milestone:"第{day}天：你和{girl}闹了别扭，你主动哄好了她，感情反而更深。" } },
+        { label:"等她冷静，先不打扰", check:{attr:"wit",diff:50}, cost:1,
+          fx:{aff:3, mood:4}, aiHint:"给她空间，让她自己消化情绪",
+          onSuccess:{ flag:"reconciled2", milestone:"第{day}天：你给了她空间，她冷静后主动来找你，说想你了。" } },
+      ],
+    },
+    "见家长": {
+      desc: "关系稳定后见她的朋友/家人（确定关系后好感高触发）",
+      condition: (g) => g.flags.dating && g.aff >= 80,
+      opts: [
+        { label:"见她的闺蜜，融入她的圈子", check:{attr:"charm",diff:55}, cost:2,
+          fx:{aff:8, mood:6}, aiHint:"和她的朋友相处融洽，她会更信任你",
+          onSuccess:{ flag:"met_friends", milestone:"第{day}天：你见了{girl}的闺蜜们，她们都说你靠谱，她特别开心。" } },
+      ],
+    },
+  },
+
   /* ---------- 事件库（按阶段随机注入，让互动有场景感） ----------
    * 来源：借鉴素材转化，人称已转男主视角（"你"=周茂文，"她"=女角色）
    * 每个阶段的事件在互动时随机注入，AI 按事件写剧情
@@ -760,6 +823,7 @@ function defaultState(){
       harem: false,           // 是否后宫
       busy: false,            // 今天是否忙（独立生活，10% 概率）
       lastInteract: 0,
+      flags: {},              // 关系标记（跨回合剧情线）
     };
   });
   return {
@@ -814,7 +878,11 @@ function attrCN(key){
   return a ? a.name : key;
 }
 function getAttr(key){ return (STATE.attrs[key] !== undefined && STATE.attrs[key] !== null) ? STATE.attrs[key] : 55; }
-function girlById(id){ return STATE.girls[id]; }
+function girlById(id){
+  const g = STATE.girls[id];
+  if(g && !g.flags) g.flags = {}; // 旧档兼容
+  return g;
+}
 
 /* ============================================================================
  *  角色生成（开局随机组合）
@@ -1143,6 +1211,7 @@ function buildSystemPrompt(g){
     "【喜欢表现】好感越高，她会自然地流露出这些喜欢信号（按性格与氛围自然出现，不必全用）："+CONFIG.likes_shown.join("；")+"。",
     "【她的记忆·里程碑】"+(g.milestones && g.milestones.length ? g.milestones.map(m=>m.text).join("；") : "你们刚认识不久")+"。",
     "【她的记忆·最近】"+(g.memories && g.memories.length ? g.memories.slice(-10).map(m=>m.text).join("；") : "暂无更多细节")+"。",
+    "【关系剧情线】"+flagsText(g)+"——这是你们关系的当前状态，写剧情时必须延续这条线（上一幕发生的事要自然影响这一幕），不要每次从零开始。",
     "【她的独立生活】她有自己的生活：工作/课业、朋友、家庭、情绪和压力，不会 24 小时围绕着你。剧情中自然提到她的生活（她在忙什么、心情如何、最近压力大不大），她有可能会忙到拒绝见面。",
     "【后宫/女主近况】"+Object.values(STATE.girls).filter(x=>x.harem||x.role==="main").filter(x=>x.id!==g.id).map(x=>x.name+"（好感"+x.aff+"）").join("、")+"——她们存在于你的生活中，但当前场景聚焦于"+g.name+"。",
     "【已解锁玩法】"+(playbookText(g) || "暂无（关系还不够深入）")+"——性爱/亲密描写时从这些玩法中自然选取 1-2 个展开，不要全部堆砌。",
@@ -1456,10 +1525,12 @@ async function chooseAct(gid, act){
   }
   const opts = CONFIG.interactions[act];
   if(!opts) return;
+  // 收集当前可触发的剧情分支（跨回合剧情线，条件满足才出现）
+  const branchOpts = availableBranches(g);
   // 随机注入当前阶段的事件场景
   const evPool = CONFIG.event_pool[g.phase] || CONFIG.event_pool.stranger;
   const scene = pick(evPool);
-  UI.currentEvent = { gid, act, opts, scene };
+  UI.currentEvent = { gid, act, opts, scene, branches: branchOpts };
   // 渲染选项
   const area = $("#actButtons");
   let html = '<div class="hint" style="margin:6px 0">📌 场景：' + scene + '</div>';
@@ -1469,12 +1540,44 @@ async function chooseAct(gid, act){
     const pb = playbookText(g);
     if(pb) html += '<div class="hint" style="color:var(--accent2)">💘 已解锁玩法：' + pb + '</div>';
   }
+  // 剧情分支选项（优先显示，橙色高亮）
+  if(branchOpts.length){
+    html += '<div class="hint" style="margin:8px 0 4px;color:var(--accent)">—— 🔥 剧情走向 ——</div>';
+    branchOpts.forEach((bo, bi) => {
+      const usable = optionUsable(bo);
+      html += '<div class="opt' + (usable ? '' : ' hidden') + '"><button class="btn branch-btn" ' + (usable ? 'onclick="doBranch(' + bi + ')"' : 'disabled') + '>' + bo.label + (bo.cost ? '<span class="req">消耗 ' + bo.cost + ' 行动点' + (bo.check ? ' · ' + attrCN(bo.check.attr) + '≥' + bo.check.diff : '') + '</span>' : '') + '</button></div>';
+    });
+  }
   opts.forEach((opt, i) => {
     const usable = optionUsable(opt);
     html += '<div class="opt' + (usable ? '' : ' hidden') + '"><button class="btn" ' + (usable ? 'onclick="doAct(' + i + ')"' : 'disabled') + '>' + opt.label + (opt.cost ? '<span class="req">消耗 ' + opt.cost + ' 行动点' + (opt.check ? ' · ' + attrCN(opt.check.attr) + '≥' + opt.check.diff : '') + '</span>' : '') + '</button></div>';
   });
   html += '<button class="btn small" onclick="openInteract(\'' + gid + '\')">← 换个行动</button>';
   area.innerHTML = html;
+}
+/* 可触发的剧情分支列表（条件满足才出现） */
+function availableBranches(g){
+  const list = [];
+  for(const key in CONFIG.branches){
+    const br = CONFIG.branches[key];
+    if(typeof br.condition === "function" && br.condition(g)){
+      br.opts.forEach(o => list.push({ ...o, branchKey: key, branchDesc: br.desc }));
+    }
+  }
+  return list;
+}
+/* 把已触发的标记转为剧情描述（注入 AI，跨回合连贯） */
+function flagsText(g){
+  if(!g.flags) return "暂无特殊关系节点";
+  const t = [];
+  if(g.flags.confessed) t.push("你已向她表白过，彼此心意明朗");
+  if(g.flags.confess_rejected) t.push("她曾拒绝过你的表白，你们之间有过尴尬期");
+  if(g.flags.reconciled) t.push("表白被拒后你选择退一步/坚持，关系已修复");
+  if(g.flags.dating) t.push("你们已正式确定恋爱关系，她是你的女朋友");
+  if(g.flags.met_friends) t.push("你见过她的闺蜜/朋友，已融入她的圈子");
+  if(g.flags.reconciled2) t.push("你们曾闹过矛盾又和好，感情更深");
+  if(g.flags.confessCount) t.push("你总共表白过" + g.flags.confessCount + "次");
+  return t.length ? t.join("；") : "暂无特殊关系节点";
 }
 async function doAct(optIdx){
   if(UI.typing) return;
@@ -1566,6 +1669,92 @@ async function doAct(optIdx){
   } else {
     setTimeout(() => openInteract(ev.gid), 800);
   }
+}
+/* 剧情分支处理：判定 → 写标记/里程碑 → AI 生成 → 结算 */
+async function doBranch(bi){
+  if(UI.typing) return;
+  const ev = UI.currentEvent;
+  if(!ev) return;
+  const g = girlById(ev.gid);
+  const bo = (ev.branches || [])[bi];
+  if(!g || !bo) return;
+  if(!optionUsable(bo)){
+    showStory('条件不足，无法这么做。');
+    return;
+  }
+  if(g.busy){
+    showStory(g.name + '今天有自己的事要忙，改天再约她吧。');
+    UI.typing = false;
+    renderMain();
+    return;
+  }
+  UI.typing = true;
+  STATE.actionPoints -= bo.cost;
+  // 判定
+  let roll;
+  if(bo.check){
+    roll = rollCheck(getAttr(bo.check.attr), bo.check.diff);
+  } else {
+    roll = { result: "success", prob: 1 };
+  }
+  const isOk = roll.result === "success" || roll.result === "crit";
+  if(isOk){
+    applyFx(g, bo.fx);
+  } else {
+    applyFx(g, { aff: -1, mood: -3 });
+  }
+  refreshPhase(g);
+  g.lastInteract = 0;
+  // 写回标记 + 里程碑（成功走 onSuccess，失败走 onFail）
+  if(!g.flags) g.flags = {};
+  const outcome = isOk ? bo.onSuccess : bo.onFail;
+  if(outcome){
+    if(outcome.flag){
+      g.flags[outcome.flag] = true;
+      if(outcome.flag === "confessCount" || outcome.flag.indexOf("Count") > 0){
+        g.flags[outcome.flag] = (g.flags[outcome.flag] || 0) + 1;
+      }
+    }
+    if(outcome.milestone){
+      const ms = outcome.milestone
+        .replace("{day}", STATE.day)
+        .replace("{girl}", g.name);
+      addMilestone(g, ms);
+      addMemory(g, ms);
+    }
+  }
+  // 失败时累计表白次数（confess_rejected 标记）
+  if(!isOk && bo.branchKey === "表白"){
+    g.flags.confessCount = (g.flags.confessCount || 0) + 1;
+  }
+  // 文本
+  const resTxt = { crit:"大成功", success:"成功", fail:"失败", bad:"大失败" }[roll.result];
+  showStory('【剧情】' + (bo.branchDesc || "") + '。你选择了：' + bo.label);
+  showRollTag(roll.result);
+  let text;
+  if(aiEnabled()){
+    try {
+      showStoryStream(append => { UI._streamAppend = append; });
+      text = await callAI(buildSystemPrompt(g), buildUserPrompt(g, bo.branchKey || "剧情", bo, roll, "剧情分支"), (delta) => {
+        if(UI._streamAppend) UI._streamAppend(delta);
+      });
+      UI._streamAppend = null;
+    } catch(e){
+      UI._streamAppend = null;
+      text = (isOk ? "这一次，你们的关系向前迈了一大步。" : "这次没能如愿，但至少你试过了。") + "（" + bo.label + "）";
+      await typeLocalText(text);
+    }
+  } else {
+    text = (isOk ? "这一次，你们的关系向前迈了一大步。" : "这次没能如愿，但至少你试过了。") + "（" + bo.label + "）";
+    await typeLocalText(text);
+  }
+  recordMemory(g, "剧情·" + (bo.branchDesc || bo.branchKey), bo, roll);
+  checkMilestones(g);
+  renderTopbarStatic();
+  save();
+  UI.typing = false;
+  renderActionArea();
+  setTimeout(() => openInteract(ev.gid), 800);
 }
 function renderTopbarStatic(){
   const top = document.querySelector('.topbar');
@@ -1705,7 +1894,7 @@ function makeNewGirl(){  const pool = CONFIG.girl_pool;
     emoji: CONFIG.girl_emojis[Math.floor(Math.random() * CONFIG.girl_emojis.length)],
     firstMeet: "在校园里偶然遇见的" + identity + "。",
     aff: 5, lust: 0, mood: 70, phase: "stranger", met: true,
-    orgasmCount: 0, creampieCount: 0, harem: false, lastInteract: 0,
+    orgasmCount: 0, creampieCount: 0, harem: false, lastInteract: 0, flags: {},
   };
 }
 /* 邂逅遇到新朋友（男生，随机名+随机身份） */
