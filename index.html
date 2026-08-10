@@ -225,6 +225,22 @@ label.lbl{display:block;font-size:12px;color:var(--text-dim);margin:10px 0 4px}
 .chapter-item.current .ch-meta{color:var(--accent)}
 .chapter-empty{color:var(--text-muted);font-size:12px;text-align:center;padding:24px 0}
 .sidebar-foot{padding:10px 14px calc(env(safe-area-inset-bottom) + 12px);border-top:1px solid var(--border)}
+
+/* ==================== 密码登录页 ==================== */
+.lock-screen{position:fixed;inset:0;z-index:200;background:var(--bg);
+  display:flex;align-items:center;justify-content:center;padding:24px}
+.lock-card{width:100%;max-width:340px;background:var(--bg-card);
+  border:1px solid var(--border);border-radius:18px;padding:26px 20px;
+  box-shadow:0 8px 30px rgba(0,0,0,.12);text-align:center}
+.lock-card .lock-emoji{font-size:42px;margin-bottom:10px}
+.lock-card h2{font-size:18px;font-weight:800;margin-bottom:4px}
+.lock-card .lock-sub{font-size:12px;color:var(--text-muted);margin-bottom:18px}
+.lock-card input{width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);
+  background:var(--bg-elev);color:var(--text);font-size:15px;outline:none;margin-bottom:12px;font-family:inherit}
+.lock-card input:focus{border-color:var(--accent)}
+.lock-card .btn{margin-top:2px}
+.lock-card .lock-forgot{display:block;margin-top:14px;font-size:12px;color:var(--text-muted);
+  background:none;border:none;cursor:pointer;text-decoration:underline}
 </style>
 </head>
 <body>
@@ -2555,29 +2571,35 @@ function renderAiSettings(){
   const content = $("#sysContent");
   if(!content) return;
   const hasKey = CONFIG.ai.apiKey && CONFIG.ai.apiKey.length > 5;
+  const locked = aiLocked();
   content.innerHTML =
     '<div class="card"><h3 style="margin-bottom:8px">⚙️ AI 设置</h3>' +
     '<div class="hint" style="margin-bottom:8px">' + (hasKey ? "✅ 已配置 AI key，剧情由 AI 生成" : "⚠️ 未填 key，剧情用本地模板（平淡）。填 key 后 AI 实时生成剧情。") + '</div>' +
+    (locked ? '<div class="hint" style="color:var(--green);margin-bottom:8px">🔒 已启用启动密码：下次打开页面需先输入密码才会自动加载 key。</div>' : '') +
     '<label class="lbl">API 地址（endpoint）</label>' +
     '<input type="text" id="aiEndpoint" value="' + CONFIG.ai.endpoint + '">' +
     '<label class="lbl">API Key（sk- 开头，只存本机浏览器）</label>' +
     '<input type="password" id="aiKey" placeholder="sk-..." value="">' +
     '<label class="lbl">模型（deepseek-v4-flash / deepseek-v4-pro）</label>' +
     '<input type="text" id="aiModel" value="' + CONFIG.ai.model + '">' +
+    '<label class="lbl">启动密码（可选）：设置后用密码登录并自动加载 key</label>' +
+    '<input type="password" id="aiPwd" placeholder="留空 = 不设密码（key 明文保存）" value="">' +
     '<button class="btn primary" onclick="saveAiSettings()">💾 保存 AI 设置</button>' +
-    '<div class="hint" style="margin-top:8px">DeepSeek key 在 platform.deepseek.com 申请。key 只保存在你的浏览器本地，不上传任何服务器。</div>' +
+    '<div class="hint" style="margin-top:8px">DeepSeek key 在 platform.deepseek.com 申请。设了密码后 key 会加密保存，打开页面需输密码才能用。</div>' +
     '</div>';
 }
 function saveAiSettings(){
   const ep = $("#aiEndpoint").value.trim();
   const key = $("#aiKey").value.trim();
   const model = $("#aiModel").value.trim();
+  const pwd = $("#aiPwd") ? $("#aiPwd").value.trim() : "";
   if(!ep || !model){ alert("API 地址和模型不能为空"); return; }
+  if(pwd && pwd.length < 3){ alert("密码至少 3 位"); return; }
   CONFIG.ai.endpoint = ep;
   if(key) CONFIG.ai.apiKey = key;
   CONFIG.ai.model = model;
-  saveAiConfig(ep, key || CONFIG.ai.apiKey, model);
-  alert("AI 设置已保存！" + (key ? "已填入 key。" : "key 保持原样。"));
+  saveAiConfig(ep, key || CONFIG.ai.apiKey, model, pwd || null);
+  alert("AI 设置已保存！" + (key ? "已填入 key。" : "key 保持原样。") + (pwd ? " 已启用启动密码：" + pwd.length + " 位。" : ""));
   renderSystem();
 }
 /* 状态页 */
@@ -2960,8 +2982,32 @@ function resetGame(){
 }
 
 /* ---------- 初始化 ---------- */
-/* ---------- AI 设置（本地存储，不进代码） ---------- */
+/* ---------- AI 设置（本地存储，不进代码；可设密码加密） ---------- */
 const AI_CFG_KEY = "lust_system_ai_cfg";
+/* 简单字符串哈希（djb2），用于验证密码是否正确 */
+function hashStr(s){
+  let h = 5381;
+  for(let i = 0; i < s.length; i++){ h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; }
+  return h.toString(36);
+}
+/* 用密码对 key 做简单异或加密 + base64（防明文，本地弱加密） */
+function xorEncode(text, pwd){
+  let out = "";
+  for(let i = 0; i < text.length; i++){
+    out += String.fromCharCode(text.charCodeAt(i) ^ pwd.charCodeAt(i % pwd.length));
+  }
+  try{ return btoa(unescape(encodeURIComponent(out))); }catch(e){ return out; }
+}
+function xorDecode(b64, pwd){
+  let out;
+  try{ out = decodeURIComponent(escape(atob(b64))); }catch(e){ out = b64; }
+  let text = "";
+  for(let i = 0; i < out.length; i++){
+    text += String.fromCharCode(out.charCodeAt(i) ^ pwd.charCodeAt(i % pwd.length));
+  }
+  return text;
+}
+/* 加载 AI 配置到 CONFIG（明文版；锁定版由 unlockAiByPassword 处理） */
 function loadAiConfig(){
   try{
     const raw = localStorage.getItem(AI_CFG_KEY);
@@ -2973,10 +3019,77 @@ function loadAiConfig(){
     }
   }catch(e){}
 }
-function saveAiConfig(endpoint, apiKey, model){
+/* 是否设置了启动密码（key 已加密锁定） */
+function aiLocked(){
   try{
-    localStorage.setItem(AI_CFG_KEY, JSON.stringify({ endpoint, apiKey, model }));
+    const raw = localStorage.getItem(AI_CFG_KEY);
+    if(!raw) return false;
+    const cfg = JSON.parse(raw);
+    return !!(cfg.locked && cfg.encKey && cfg.hash);
+  }catch(e){ return false; }
+}
+/* 用密码解锁：验证密码 → 解密 key 载入 CONFIG */
+function unlockAiByPassword(pwd){
+  try{
+    const cfg = JSON.parse(localStorage.getItem(AI_CFG_KEY));
+    if(!cfg || !cfg.locked) return true;   // 未锁定视为直接通过
+    if(hashStr(pwd || "") !== cfg.hash) return false;
+    CONFIG.ai.endpoint = cfg.endpoint || CONFIG.ai.endpoint;
+    CONFIG.ai.apiKey = xorDecode(cfg.encKey, pwd);
+    CONFIG.ai.model = cfg.model || CONFIG.ai.model;
+    return true;
+  }catch(e){ return false; }
+}
+/* 保存 AI 配置；password 非空则加密锁定，否则明文 */
+function saveAiConfig(endpoint, apiKey, model, password){
+  try{
+    if(password){
+      localStorage.setItem(AI_CFG_KEY, JSON.stringify({
+        locked: true,
+        hash: hashStr(password),
+        endpoint: endpoint,
+        model: model,
+        encKey: xorEncode(apiKey, password),
+      }));
+    } else {
+      localStorage.setItem(AI_CFG_KEY, JSON.stringify({ endpoint, apiKey, model }));
+    }
   }catch(e){}
+}
+/* 渲染密码登录页（覆盖全屏，等解锁后才进小说） */
+function renderLockScreen(){
+  const app = $("#app");
+  app.innerHTML =
+    '<div class="lock-screen" id="lockScreen"><div class="lock-card">' +
+    '<div class="lock-emoji">🔒</div>' +
+    '<h2>淫欲系统</h2>' +
+    '<div class="lock-sub">输入启动密码以加载 AI key</div>' +
+    '<input type="password" id="lockPwd" placeholder="密码" autocomplete="off" onkeydown="if(event.key===\'Enter\')tryLogin()">' +
+    '<button class="btn primary" onclick="tryLogin()">🔓 解锁</button>' +
+    '<button class="lock-forgot" onclick="forgotPassword()">忘记密码？清除并重新设置</button>' +
+    '</div></div>';
+  setTimeout(() => { const inp = $("#lockPwd"); if(inp) inp.focus(); }, 100);
+}
+/* 尝试用密码解锁 */
+function tryLogin(){
+  const inp = $("#lockPwd");
+  const pwd = (inp && inp.value) || "";
+  if(!pwd){ alert("请输入密码"); return; }
+  if(unlockAiByPassword(pwd)){
+    save();            // 存档会随读档继续
+    renderMain();
+    if(inp) inp.value = "";
+  } else {
+    alert("密码错误");
+    if(inp){ inp.value = ""; inp.focus(); }
+  }
+}
+/* 忘记密码：清除加密配置（需重新填 key） */
+function forgotPassword(){
+  if(confirm("确定清除加密的 AI 配置吗？之后需要重新在设置里填 key 和密码。")){
+    try{ localStorage.removeItem(AI_CFG_KEY); }catch(e){}
+    renderMain();   // 回到未配置状态（aiEnabled() 为 false）
+  }
 }
 
 function init(){
@@ -2986,10 +3099,14 @@ function init(){
   if(!STATE.hardware) STATE.hardware = { len: CONFIG.hardware.len.init, girth: CONFIG.hardware.girth.init, dura: CONFIG.hardware.dura.init };
   if(!STATE.assets) STATE.assets = { car: [], house: [], luxury: [] };
   if(!STATE.shopState) STATE.shopState = { day: 0, items: [], assets: { car: [], house: [], luxury: [] }, manualItemRefreshes: 0, manualAssetRefreshes: 0 };
-  if(!STATE.friends) STATE.friends = [];   // 旧档兼容：无则空，激活时生成核心 2 人
   // 未定性标记：开局生成的女主/女配保持原样
   refreshDailyShop();
-  renderMain();
+  // 已设启动密码 → 先显示登录页，解锁后才进小说
+  if(aiLocked()){
+    renderLockScreen();
+  } else {
+    renderMain();
+  }
 }
 init();
 </script>
