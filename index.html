@@ -197,6 +197,34 @@ label.lbl{display:block;font-size:12px;color:var(--text-dim);margin:10px 0 4px}
 .dock-send:disabled{opacity:.45;box-shadow:none}
 /* 系统面板（复用 #app 容器内的子视图） */
 .sys-view{flex:1;overflow-y:auto;padding:6px 14px calc(env(safe-area-inset-bottom) + 20px)}
+
+/* ==================== 章节侧边栏 ==================== */
+.sidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:100;
+  opacity:0;pointer-events:none;transition:opacity .22s}
+.sidebar-overlay.open{opacity:1;pointer-events:auto}
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:288px;max-width:82vw;z-index:101;
+  background:var(--bg-card);border-right:1px solid var(--border);
+  box-shadow:2px 0 18px rgba(0,0,0,.12);
+  transform:translateX(-100%);transition:transform .25s ease;
+  display:flex;flex-direction:column}
+.sidebar.open{transform:translateX(0)}
+.sidebar-header{display:flex;align-items:center;justify-content:space-between;
+  padding:calc(env(safe-area-inset-top) + 14px) 14px 10px;border-bottom:1px solid var(--border)}
+.sidebar-title{font-size:16px;font-weight:800}
+.sidebar-close{background:var(--bg-elev);border:none;border-radius:9px;
+  width:32px;height:32px;font-size:14px;color:var(--text-dim);cursor:pointer}
+.sidebar-list{flex:1;overflow-y:auto;padding:8px}
+.chapter-item{background:var(--bg-elev);border:1px solid var(--border);border-radius:12px;
+  padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:border-color .12s}
+.chapter-item:active{border-color:var(--accent)}
+.chapter-item.current{border-color:var(--accent);background:#eaf7f3}
+.chapter-item.generating{border-style:dashed}
+.chapter-item .ch-title{font-size:13px;font-weight:700;color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chapter-item .ch-meta{font-size:11px;color:var(--text-muted);margin-top:3px}
+.chapter-item.current .ch-meta{color:var(--accent)}
+.chapter-empty{color:var(--text-muted);font-size:12px;text-align:center;padding:24px 0}
+.sidebar-foot{padding:10px 14px calc(env(safe-area-inset-bottom) + 12px);border-top:1px solid var(--border)}
 </style>
 </head>
 <body>
@@ -802,6 +830,8 @@ function ensureStateCompat(){
   if(STATE.playerDeflowered === undefined) STATE.playerDeflowered = false;
   if(STATE.bound === undefined) STATE.bound = true; // 旧存档兼容：已有数据 = 已绑定
   if(STATE.timeSlot === undefined) STATE.timeSlot = 0; // 旧档兼容：时段从清晨开始
+  if(!STATE.chapters) STATE.chapters = [];              // 旧档兼容：无章节记录
+  if(STATE.currentChapterIdx === undefined) STATE.currentChapterIdx = -1;
   // 角色卡记忆兼容
   Object.values(STATE.girls).forEach(g => {
     if(!g.memories) g.memories = [];
@@ -911,6 +941,9 @@ function defaultState(){
     // 解锁标记
     metAll: false,
     _lockedAchievements: false,
+    // 章节存档（文章模式侧边栏）
+    chapters: [],              // [{idx,title,day,timeSlot,messages:[{cls,text}],completed,charCount}]
+    currentChapterIdx: -1,     // 正在生成的章节在 chapters 中的索引
   };
 }
 
@@ -1490,7 +1523,7 @@ async function callAI(systemPrompt, userPrompt, onChunk){
  * ==========================================================================*/
 
 /* ---------- 全局 UI 状态 ---------- */
-const UI = { screen: "main", tab: "status", selectedGirl: null, currentEvent: null, typing: false, novelCtx: null, novelOpts: [], intent: "chat", forceSpawn: false, chapter: 0 };
+const UI = { screen: "main", tab: "status", selectedGirl: null, currentEvent: null, typing: false, novelCtx: null, novelOpts: [], intent: "chat", forceSpawn: false, chapter: 0, viewingChapterIdx: null };
 
 /* ---------- 主界面渲染 ---------- */
 /* 系统绑定：开局触发 */
@@ -1529,11 +1562,16 @@ function renderMain(){
   app.innerHTML = renderTopbar() +
     '<div class="chat-flow" id="storyBox"></div>' +
     renderDock();
+  ensureSidebar();  // 注入章节侧边栏 DOM
   // 保留已有剧情内容（renderMain 可能因过天/定性等被重复调用，不覆盖玩家已读文字）
   const old = _prevStoryHTML;
   const box = $("#storyBox");
   if(box){
-    if(old){ box.innerHTML = old; }
+    if(STATE.chapters && STATE.chapters.length){
+      // 已有章节记录：恢复用户当前查看的章节（历史章或最新章）
+      renderChapterBox(UI.viewingChapterIdx !== null ? UI.viewingChapterIdx : STATE.currentChapterIdx);
+    }
+    else if(old){ box.innerHTML = old; }
     else if(!box.childNodes.length){
       box.innerHTML = '<div class="msg ai"><span class="sys-note">' + CONFIG.fallback.intro + '</span></div>';
       // 首次进入：开始小说
@@ -1550,6 +1588,7 @@ async function novelStart(){
   clearStory();
   UI.chapter = 1;
   UI.novelCtx = { present: [], scene: "松江大学城，大一新学期的某个" + timeSlotCN() + "。", direction: "" };
+  beginChapter("第 1 章");   // 创建章节存储条目
   // 开场可能直接遇到一个女生
   maybeSpawnGirl();
   const prompt = buildNovelPrompt(UI.novelCtx);
@@ -1579,6 +1618,13 @@ function finishChapter(text){
   const parsed = parseNovelOutput(text);
   UI.novelOpts = parsed.opts;
   UI.chapterLen = (parsed.body || "").length;
+  // 更新当前章节存储：完成标记 + 字数 + 标题
+  const ch = currentChapter();
+  if(ch){
+    ch.completed = true;
+    ch.charCount = UI.chapterLen;
+    ch.title = chapterTitleFrom(parsed.body);
+  }
   UI.typing = false;
   renderChapterEnd();
   save();
@@ -1589,6 +1635,8 @@ function renderChapterEnd(){
   if(!flow) return;
   // 尚未开始第一章时不渲染
   if(!UI.chapter || UI.typing) return;
+  // 正在看历史章节时，不在 DOM 里渲染最新章卡片
+  if(!viewingLatest()) return;
   const oldCard = $("#optsCard");
   if(oldCard && oldCard.parentNode) oldCard.parentNode.removeChild(oldCard);
   const opts = (UI.novelOpts || []);
@@ -1607,6 +1655,87 @@ function renderChapterEnd(){
   card.innerHTML = html;
   flow.appendChild(card);
   flow.scrollTop = flow.scrollHeight;
+}
+/* 注入侧边栏 DOM（遮罩 + 面板，挂在 body 下，全局唯一） */
+function ensureSidebar(){
+  if($("#chapterSidebar")) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'sidebar-overlay';
+  overlay.id = 'sidebarOverlay';
+  overlay.onclick = () => toggleSidebar();
+  const sb = document.createElement('div');
+  sb.className = 'sidebar';
+  sb.id = 'chapterSidebar';
+  document.body.appendChild(overlay);
+  document.body.appendChild(sb);
+}
+/* ---------- 章节侧边栏 ---------- */
+/* 把指定章节（索引）的内容渲染进 #storyBox */
+function renderChapterBox(idx){
+  const box = $("#storyBox");
+  if(!box) return;
+  box.innerHTML = '';
+  const ch = (STATE.chapters && idx >= 0 && idx < STATE.chapters.length) ? STATE.chapters[idx] : null;
+  if(ch && ch.messages){
+    ch.messages.forEach(m => {
+      const node = document.createElement('div');
+      node.className = 'msg ' + m.cls;
+      node.textContent = m.text;
+      box.appendChild(node);
+    });
+  }
+  box.scrollTop = box.scrollHeight;
+}
+/* 侧边栏列表 HTML */
+function renderSidebar(){
+  const sb = $("#chapterSidebar");
+  if(!sb) return;
+  const chapters = STATE.chapters || [];
+  let items = '';
+  if(!chapters.length){
+    items = '<div class="chapter-empty">还没有章节</div>';
+  } else {
+    chapters.forEach((ch, i) => {
+      const isCurrent = (i === STATE.currentChapterIdx);
+      const isViewing = (UI.viewingChapterIdx === i) || (UI.viewingChapterIdx === null && isCurrent);
+      const cls = 'chapter-item' + (isViewing ? ' current' : '') + (isCurrent && !ch.completed ? ' generating' : '');
+      const meta = '第 ' + (i+1) + ' 章 · 第' + ch.day + '天' + (ch.charCount ? ' · ' + ch.charCount + '字' : '') + (isCurrent && !ch.completed ? ' · ⏳生成中' : '');
+      items += '<div class="' + cls + '" onclick="switchChapter(' + i + ')">' +
+        '<div class="ch-title">' + (ch.title || ('第 ' + (i+1) + ' 章')) + '</div>' +
+        '<div class="ch-meta">' + meta + '</div></div>';
+    });
+  }
+  sb.innerHTML =
+    '<div class="sidebar-header"><div class="sidebar-title">📑 章节</div>' +
+    '<button class="sidebar-close" onclick="toggleSidebar()">✕</button></div>' +
+    '<div class="sidebar-list">' + items + '</div>' +
+    '<div class="sidebar-foot"><button class="btn primary" onclick="backToLatest()">⬇ 回到最新章节</button></div>';
+}
+/* 打开/关闭侧边栏 */
+function toggleSidebar(){
+  const sb = $("#chapterSidebar");
+  const ov = $("#sidebarOverlay");
+  if(!sb) return;
+  const opening = !sb.classList.contains('open');
+  sb.classList.toggle('open', opening);
+  if(ov) ov.classList.toggle('open', opening);
+  if(opening) renderSidebar();
+}
+/* 切换到某章节阅读（不影响正在进行的生成） */
+function switchChapter(idx){
+  if(idx < 0 || !STATE.chapters || idx >= STATE.chapters.length) return;
+  UI.viewingChapterIdx = idx;
+  renderChapterBox(idx);
+  toggleSidebar();          // 关闭侧边栏
+  renderSidebar();          // 刷新高亮
+}
+/* 回到最新章节（继续跟随生成） */
+function backToLatest(){
+  UI.viewingChapterIdx = null;
+  renderChapterBox(STATE.currentChapterIdx);
+  toggleSidebar();
+  renderSidebar();
+  renderChapterEnd();
 }
 /* 玩家选 AI 给的下一章方向 */
 async function novelChoose(idx){
@@ -1644,6 +1773,7 @@ async function genChapter(){
   UI.chapter = (UI.chapter||0) + 1;
   advanceTime(); // 每章推进一个时段
   maybeSpawnGirl();
+  beginChapter("第 " + UI.chapter + " 章");   // 创建新章节存储条目
   const card = $("#optsCard");
   if(card && card.parentNode) card.parentNode.removeChild(card);
   const ctx = UI.novelCtx || (UI.novelCtx = { present: [], scene: "", direction: "" });
@@ -1723,6 +1853,7 @@ function renderTopbar(){
       '<div class="top-sub">' + sub + '</div>' +
     '</div>' +
     '<div class="top-btns">' +
+      '<button class="top-ico" onclick="toggleSidebar()" title="章节">📑</button>' +
       '<button class="top-ico" onclick="switchTab(\'shop\')" title="商城">🛍️</button>' +
       '<button class="top-ico" onclick="switchTab(\'rel\')" title="关系网">💗</button>' +
       '<button class="top-ico" onclick="switchTab(\'status\')" title="状态">📊</button>' +
@@ -1794,18 +1925,62 @@ function advanceTime(){
   }
   save();
 }
-function showStory(text){
+/* ---------- 章节存储核心（文章模式侧边栏） ---------- */
+/* 当前正在生成的章节对象（无则 null） */
+function currentChapter(){
+  if(STATE.chapters && STATE.currentChapterIdx >= 0 && STATE.currentChapterIdx < STATE.chapters.length){
+    return STATE.chapters[STATE.currentChapterIdx];
+  }
+  return null;
+}
+/* 用户是否正在查看最新（正在生成的）章节 */
+function viewingLatest(){
+  return UI.viewingChapterIdx === null || UI.viewingChapterIdx === STATE.currentChapterIdx;
+}
+/* 开始一个新章节：创建章节条目，强制回到最新视图 */
+function beginChapter(title){
+  STATE.chapters = STATE.chapters || [];
+  const idx = STATE.chapters.length;
+  STATE.currentChapterIdx = idx;
+  UI.viewingChapterIdx = null;   // 新章开始时回到最新视图
+  STATE.chapters.push({
+    idx: idx,
+    title: title || ("第 " + (idx + 1) + " 章"),
+    day: STATE.day,
+    timeSlot: STATE.timeSlot,
+    messages: [],                // [{cls:"ai"|"me"|"sys", text}]
+    completed: false,
+    charCount: 0,
+  });
+  return STATE.chapters[idx];
+}
+/* 章节标题：从正文取首句 */
+function chapterTitleFrom(body){
+  const t = (body || "").replace(/\s+/g, " ").trim();
+  return t ? t.slice(0, 16) + (t.length > 16 ? "…" : "") : "第 " + (UI.chapter || 1) + " 章";
+}
+/* 把消息写入当前章节存储（唯一数据源） */
+function recordMessage(cls, text){
+  const ch = currentChapter();
+  if(ch) ch.messages.push({ cls: cls, text: String(text) });
+}
+/* 渲染单条消息到 #storyBox（仅当正在查看最新章时） */
+function renderMessageNode(cls, text){
   const box = $("#storyBox");
   if(!box) return;
   const node = document.createElement('div');
-  // 分类：➤=玩家选择(右对齐绿泡) ；✨/——=系统提示(居中) ；其他=AI消息(左对齐白卡)
-  if(text.indexOf('➤') === 0) node.className = 'msg me';
-  else if(text.indexOf('✨') === 0 || text.indexOf('——') === 0 || text.indexOf('💜') === 0 || text.indexOf('🌙') === 0) node.className = 'msg sys';
-  else node.className = 'msg ai';
+  node.className = 'msg ' + cls;
   node.textContent = text;
   box.appendChild(node);
   box.scrollTop = box.scrollHeight;
-  _prevStoryHTML = box.innerHTML; // 保存快照，renderMain 重建时可恢复
+  _prevStoryHTML = box.innerHTML;
+}
+function showStory(text){
+  const cls = (text.indexOf('➤') === 0) ? 'me'
+    : (text.indexOf('✨') === 0 || text.indexOf('——') === 0 || text.indexOf('💜') === 0 || text.indexOf('🌙') === 0) ? 'sys'
+    : 'ai';
+  recordMessage(cls, text);
+  if(viewingLatest()) renderMessageNode(cls, text);
 }
 /* 清空剧情区：仅在新场景开始时调用，保证生成过的文字停留可见 */
 function clearStory(){
@@ -1813,17 +1988,25 @@ function clearStory(){
   if(box) box.innerHTML = '';
   _prevStoryHTML = '';
 }
-/* 流式打字机渲染：onChunk 每收到一段就追加 */
+/* 流式打字机渲染：onChunk 每收到一段就追加（同时写入章节存储） */
 function showStoryStream(onChunk){
   const box = $("#storyBox");
   if(!box) return { append(){} };
+  // 登记一条 AI 消息到当前章节
+  const ch = currentChapter();
+  const msg = { cls: 'ai', text: "" };
+  if(ch) ch.messages.push(msg);
   const node = document.createElement('div');
   node.className = 'msg ai';
   box.appendChild(node);
+  const latest = viewingLatest();   // 生成开始时是否在看最新（后续切走不影响）
   const append = (txt) => {
-    node.textContent += txt;
-    box.scrollTop = box.scrollHeight;
-    _prevStoryHTML = box.innerHTML;
+    msg.text += txt;
+    if(latest && box){
+      node.textContent = msg.text;
+      box.scrollTop = box.scrollHeight;
+      _prevStoryHTML = box.innerHTML;
+    }
   };
   if(typeof onChunk === "function") onChunk(append);
   return { node };
@@ -1834,10 +2017,15 @@ function typeLocalText(text, speed){
   return new Promise(resolve => {
     const box = $("#storyBox");
     if(!box){ resolve(); return; }
+    // 登记一条 AI 消息到当前章节
+    const ch = currentChapter();
+    const msg = { cls: 'ai', text: "" };
+    if(ch) ch.messages.push(msg);
     const node = document.createElement('div');
     node.className = 'msg ai';
     box.appendChild(node);
     box.scrollTop = box.scrollHeight;
+    const latest = viewingLatest();
     let i = 0;
     const timer = setInterval(() => {
       if(i >= text.length){
@@ -1845,10 +2033,13 @@ function typeLocalText(text, speed){
         resolve();
         return;
       }
-      node.textContent += text[i];
+      msg.text += text[i];
+      if(latest && box){
+        node.textContent = msg.text;
+        box.scrollTop = box.scrollHeight;
+        _prevStoryHTML = box.innerHTML;
+      }
       i++;
-      box.scrollTop = box.scrollHeight;
-      _prevStoryHTML = box.innerHTML;
     }, speed);
   });
 }
