@@ -8,15 +8,16 @@
 /* ==================== 基础 ==================== */
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 :root{
-  --bg:#120f1c; --bg-card:#1c1830; --bg-elev:#262041; --border:#38305c;
-  --text:#f0eaff; --text-dim:#9f94c4; --text-muted:#6d6396;
-  --accent:#e14dff; --accent2:#ff5fb0; --gold:#ffd166; --green:#57d9a3; --red:#ff6b6b;
-  --blue:#5fa8ff; --shadow:0 2px 14px rgba(0,0,0,.4); --radius:16px;
+  --bg:#f5f5f5; --bg-card:#ffffff; --bg-elev:#ececec; --border:#e3e3e3;
+  --text:#2b2b2b; --text-dim:#6b6b6b; --text-muted:#9a9a9a;
+  --accent:#16a085; --accent2:#1abc9c; --gold:#e8a33d; --green:#16a085; --red:#e5484d;
+  --blue:#4a90d9; --shadow:0 2px 10px rgba(0,0,0,.06); --radius:14px;
 }
-html,body{width:100%;min-height:100%;background:var(--bg);color:var(--text);
+html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
   font-family:'PingFang SC','Microsoft YaHei',system-ui,-apple-system,sans-serif;
-  overflow-x:hidden}
-#app{max-width:520px;margin:0 auto;min-height:100dvh;padding:calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 24px);position:relative}
+  overflow:hidden}
+#app{max-width:520px;margin:0 auto;height:100dvh;display:flex;flex-direction:column;
+  background:var(--bg);position:relative}
 .screen{display:none}
 .screen.active{display:block;animation:fadeIn .25s ease}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -48,40 +49,60 @@ input[type=text]:focus{border-color:var(--accent)}
 label.lbl{display:block;font-size:12px;color:var(--text-dim);margin:10px 0 4px}
 .hint{font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.5}
 
-/* ==================== 顶栏 ==================== */
-.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.topbar .badge{font-size:12px;background:var(--bg-elev);border:1px solid var(--border);
-  border-radius:999px;padding:5px 12px;color:var(--text-dim)}
-.topbar .lust-badge{font-size:13px;font-weight:800;color:var(--accent);
-  background:var(--bg-elev);border:1px solid var(--accent);border-radius:999px;padding:5px 12px}
-.icon-btn{background:var(--bg-elev);border:1px solid var(--border);color:var(--text-dim);
-  border-radius:10px;padding:6px 10px;font-size:12px;cursor:pointer}
+/* ==================== 顶栏（AI 助手风格） ==================== */
+.topbar{display:flex;align-items:center;justify-content:space-between;
+  padding:calc(env(safe-area-inset-top) + 12px) 14px 10px;flex-shrink:0;gap:10px}
+.top-left{min-width:0}
+.top-title{font-size:17px;font-weight:700;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.top-title .pencil{color:var(--text-muted);font-size:13px}
+.top-sub{font-size:11px;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top-btns{display:flex;gap:6px;flex-shrink:0}
+.top-ico{background:var(--bg-elev);border:none;color:var(--text-dim);
+  border-radius:9px;padding:7px 9px;font-size:13px;cursor:pointer;line-height:1}
+.top-ico:active{background:var(--border)}
+.lust-pill{background:var(--bg-elev);border-radius:999px;padding:6px 12px;
+  font-size:13px;font-weight:800;color:var(--accent);white-space:nowrap}
 
 /* ==================== 状态条 ==================== */
 .statbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .stat-cell{flex:1;min-width:90px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:8px 10px;text-align:center}
 .stat-cell .k{font-size:11px;color:var(--text-dim)}
 .stat-cell .v{font-size:17px;font-weight:800}
-.stat-cell .bar{height:4px;background:#3a3350;border-radius:2px;margin-top:4px;overflow:hidden}
+.stat-cell .bar{height:4px;background:#e8e8e8;border-radius:2px;margin-top:4px;overflow:hidden}
 .stat-cell .bar>i{display:block;height:100%;border-radius:2px;transition:width .4s}
 .bar-affection>i{background:linear-gradient(90deg,var(--accent),var(--accent2))}
 .bar-lust>i{background:var(--red)}
 .bar-mood>i{background:var(--gold)}
 .bar-energy>i{background:var(--green)}
 
-/* ==================== 剧情区 ==================== */
-.story-box{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
-  padding:16px;min-height:200px;max-height:44dvh;overflow-y:auto;margin-bottom:12px;box-shadow:var(--shadow);
-  line-height:1.9;font-size:15px;white-space:pre-wrap}
-.story-box .spk{color:var(--accent2);font-weight:700}
-.story-box .sys-note{color:var(--text-muted);font-size:12px}
-.story-box .roll{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;margin-left:6px}
-.roll.crit{background:var(--gold);color:#2a2410}
-.roll.ok{background:var(--green);color:#0e2b1f}
+/* ==================== 剧情区（消息流） ==================== */
+.chat-flow{flex:1;overflow-y:auto;padding:4px 14px calc(env(safe-area-inset-bottom) + 16px);
+  scroll-behavior:smooth;-webkit-overflow-scrolling:touch}
+.msg{margin-bottom:10px;max-width:92%;line-height:1.75;font-size:15px;
+  white-space:pre-wrap;word-break:break-word}
+.msg.ai{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+  padding:12px 14px;box-shadow:var(--shadow);margin-right:auto}
+.msg.me{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;
+  border-radius:14px;padding:9px 13px;margin-left:auto;box-shadow:var(--shadow)}
+.msg.sys{text-align:center;color:var(--text-muted);font-size:12px;margin:6px auto}
+.msg .spk{color:var(--accent);font-weight:700}
+.msg .sys-note{color:var(--text-muted);font-size:12px}
+.msg .roll{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;margin-left:6px}
+.roll.crit{background:var(--gold);color:#fff}
+.roll.ok{background:var(--green);color:#fff}
 .roll.fail{background:var(--red);color:#fff}
-.roll.bad{background:#7a2c2c;color:#ffd0d0}
+.roll.bad{background:var(--red);color:#fff;opacity:.8}
 .typing-caret::after{content:'▌';color:var(--accent);animation:blink .8s step-end infinite}
 @keyframes blink{50%{opacity:0}}
+/* 选项卡片（AI 回复下方的按钮组） */
+.opts-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+  padding:12px;margin-bottom:10px;box-shadow:var(--shadow)}
+.opts-card .opts-title{font-size:11px;color:var(--text-muted);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.opts-card .opt-btn{display:block;width:100%;text-align:left;background:var(--bg-elev);
+  border:1px solid var(--border);border-radius:10px;padding:11px 12px;font-size:14px;
+  color:var(--text);margin-bottom:8px;cursor:pointer;line-height:1.5;font-family:inherit}
+.opts-card .opt-btn:last-child{margin-bottom:0}
+.opts-card .opt-btn:active{background:var(--border);transform:scale(.98)}
 
 /* ==================== 女生列表 ==================== */
 .girl-card{display:flex;gap:12px;align-items:center;background:var(--bg-card);border:1px solid var(--border);
@@ -92,7 +113,7 @@ label.lbl{display:block;font-size:12px;color:var(--text-dim);margin:10px 0 4px}
 .girl-info{flex:1;min-width:0}
 .girl-info .g-name{font-size:15px;font-weight:700}
 .girl-info .g-meta{font-size:11px;color:var(--text-dim);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.girl-info .g-bar{height:5px;background:#3a3350;border-radius:3px;margin-top:6px;overflow:hidden}
+.girl-info .g-bar{height:5px;background:#e8e8e8;border-radius:3px;margin-top:6px;overflow:hidden}
 .girl-info .g-bar>i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .4s}
 .girl-side{text-align:right;flex-shrink:0}
 .girl-side .g-lust{font-size:13px;font-weight:800;color:var(--red)}
@@ -150,7 +171,29 @@ label.lbl{display:block;font-size:12px;color:var(--text-dim);margin:10px 0 4px}
 
 /* 滚动条 */
 ::-webkit-scrollbar{width:4px;height:4px}
-::-webkit-scrollbar-thumb{background:#4a4163;border-radius:2px}
+::-webkit-scrollbar-thumb{background:#cfcfcf;border-radius:2px}
+
+/* ==================== 底部操作栏（AI 助手 dock） ==================== */
+.dock{flex-shrink:0;padding:8px 14px calc(env(safe-area-inset-bottom) + 10px);
+  background:linear-gradient(to top,var(--bg) 78%,transparent)}
+.dock-bar{display:flex;align-items:center;gap:8px;background:var(--bg-card);
+  border:1px solid var(--border);border-radius:16px;padding:8px;box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.dock-plus{flex-shrink:0;width:38px;height:38px;border-radius:12px;background:var(--bg-elev);
+  border:none;font-size:20px;color:var(--text-dim);cursor:pointer;line-height:1}
+.dock-plus:active{background:var(--border)}
+.mode-tags{flex:1;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:1px}
+.mode-tags::-webkit-scrollbar{display:none}
+.mode-tag{flex-shrink:0;white-space:nowrap;background:var(--bg-elev);border:none;color:var(--text-dim);
+  border-radius:999px;padding:8px 12px;font-size:12px;cursor:pointer;line-height:1}
+.mode-tag.on{background:var(--accent);color:#fff;font-weight:700}
+.dock-send{flex-shrink:0;width:40px;height:40px;border-radius:50%;border:none;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;
+  font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 3px 10px rgba(22,160,133,.4)}
+.dock-send:active{transform:scale(.93)}
+.dock-send:disabled{opacity:.45;box-shadow:none}
+/* 系统面板（复用 #app 容器内的子视图） */
+.sys-view{flex:1;overflow-y:auto;padding:6px 14px calc(env(safe-area-inset-bottom) + 20px)}
 </style>
 </head>
 <body>
@@ -1265,6 +1308,7 @@ function buildNovelPrompt(ctx){
     "【世界观】现代都市，上海松江大学城。玩家周茂文（大一新生，175cm）身上有只有他自己知晓的「淫欲系统」：通过与女性的交流、亲密、性交让她们产生性冲动、高潮、被内射来获取淫欲值（可在商城兑换道具技能，或 1:1000 兑换人民币）。系统不会被任何人发现。",
     "【写法核心】这是一部连续小说，不是孤立片段：上一幕发生的事必须自然延续到这一幕（对话、情绪、关系都要接得上），像连载一样环环相扣。",
     "【当前场景】" + (ctx.scene || "周茂文在松江大学城的日常生活") + "。",
+    "【互动意图】" + ({ chat:"这一段以轻松闲聊、日常相处、自然拉近关系为主；可以多写对话和氛围。", flirt:"这一段以暧昧调情为主：眼神、肢体靠近、欲言又止的试探，气氛缓缓升温。", intimate:"这一段大胆推动亲密接触：贴近、牵手、拥抱、接吻等，按尺度铁律写到位，不要扭捏。", story:"这一段推进主线：事件、冲突、关键转折，或某个女生的专属剧情线。" })[UI.intent] || "轻松推进剧情。",
     "【在场人物】" + (present || "暂无（独自一人或与路人）") + (others ? "。其他认识的人（不在场）：" + others : "") + "。",
     "【关系剧情线】" + flagsTextAll() + "——写剧情时必须延续这条线，不要每次从零开始。",
     "【记忆·里程碑】" + milestoneTextAll() + "。",
@@ -1441,7 +1485,7 @@ async function callAI(systemPrompt, userPrompt, onChunk){
  * ==========================================================================*/
 
 /* ---------- 全局 UI 状态 ---------- */
-const UI = { screen: "main", tab: "status", selectedGirl: null, currentEvent: null, typing: false, novelCtx: null, novelOpts: [] };
+const UI = { screen: "main", tab: "status", selectedGirl: null, currentEvent: null, typing: false, novelCtx: null, novelOpts: [], intent: "chat", forceSpawn: false };
 
 /* ---------- 主界面渲染 ---------- */
 /* 系统绑定：开局触发 */
@@ -1464,27 +1508,29 @@ function fmt(n){
 function renderMain(){
   const app = $("#app");
   if(!STATE.bound){
-    // 系统未绑定 → 显示绑定剧情入口
-    app.innerHTML = '<div class="card" style="text-align:center;padding:30px 16px">' +
-      '<h1 class="page-title">' + CONFIG.title + '</h1>' +
-      '<p class="page-sub">' + CONFIG.subtitle + '</p>' +
-      '<div class="story-box" id="storyBox" style="min-height:100px">' +
-      '<span class="sys-note">大一开学，你踏进松江大学城校园的那一刻，脑海中突然多了一个声音——「淫欲系统已绑定就绪，等待激活」。</span>' +
-      '</div>' +
-      '<button class="btn primary" onclick="activateSystem()">🔓 激活淫欲系统（获得 500 淫欲值 + 开局礼包）</button>' +
-      '</div>';
+    // 系统未绑定 → 显示激活入口（消息流风格）
+    app.innerHTML = '<div class="topbar"><div class="top-left">' +
+      '<div class="top-title">💜 ' + CONFIG.title + ' <span class="pencil">✏️</span></div>' +
+      '<div class="top-sub">' + CONFIG.subtitle + '</div></div>' +
+      '<div class="top-btns"><button class="top-ico" onclick="switchTab(\'ai\')">⚙️</button></div></div>' +
+      '<div class="chat-flow" id="storyBox">' +
+      '<div class="msg ai" style="text-align:center"><div style="font-size:40px;margin-bottom:8px">💜</div>' +
+      '<div style="font-weight:700;margin-bottom:6px">淫欲系统已绑定就绪，等待激活</div>' +
+      '<div class="sys-note">大一开学，你踏进松江大学城校园的那一刻，脑海中突然多了一个声音……</div>' +
+      '<button class="btn primary" style="margin-top:14px" onclick="activateSystem()">🔓 激活淫欲系统（获得 500 淫欲值 + 开局礼包）</button>' +
+      '</div></div>';
     return;
   }
   app.innerHTML = renderTopbar() +
-    '<div class="story-box" id="storyBox"></div>' +
-    '<div id="actionArea"></div>';
+    '<div class="chat-flow" id="storyBox"></div>' +
+    renderDock();
   // 保留已有剧情内容（renderMain 可能因过天/定性等被重复调用，不覆盖玩家已读文字）
   const old = _prevStoryHTML;
   const box = $("#storyBox");
   if(box){
     if(old){ box.innerHTML = old; }
     else if(!box.childNodes.length){
-      box.innerHTML = '<span class="sys-note">' + CONFIG.fallback.intro + '</span>';
+      box.innerHTML = '<div class="msg ai"><span class="sys-note">' + CONFIG.fallback.intro + '</span></div>';
       // 首次进入：开始小说
       setTimeout(() => novelStart(), 200);
     }
@@ -1501,8 +1547,8 @@ async function novelStart(){
   // 开场可能直接遇到一个女生
   maybeSpawnGirl();
   const prompt = buildNovelPrompt(UI.novelCtx);
-  const area = $("#actionArea");
-  if(area) area.innerHTML = '<div class="hint">故事开始……</div>';
+  const card = $("#optsCard");
+  if(card && card.parentNode) card.parentNode.removeChild(card);
   let text;
   if(aiEnabled()){
     try {
@@ -1524,26 +1570,28 @@ async function novelStart(){
   renderNovelChoices();
   save();
 }
-/* 每段剧情后的选项渲染（AI 给的 2-3 个选项 + 系统导航） */
+/* 每段剧情后的选项渲染（渲染为剧情流末尾的选项卡片） */
 function renderNovelChoices(){
-  const area = $("#actionArea");
-  if(!area) return;
+  const flow = $("#storyBox");
+  if(!flow) return;
+  // 移除旧选项卡片，重新渲染在最新消息下方
+  const oldCard = $("#optsCard");
+  if(oldCard && oldCard.parentNode) oldCard.parentNode.removeChild(oldCard);
   const opts = (UI.novelOpts || []);
-  let html = '<div class="hint" style="margin:8px 0 6px">—— 接下来 ——</div>';
+  const card = document.createElement('div');
+  card.className = 'opts-card';
+  card.id = 'optsCard';
+  let html = '<div class="opts-title">💡 接下来……（选择影响走向与数值，或点下方 ↑ 让故事自然推进）</div>';
   if(opts.length){
     opts.forEach((o, i) => {
-      html += '<div class="opt"><button class="btn" onclick="novelChoose(' + i + ')">' + o + '</button></div>';
+      html += '<button class="opt-btn" onclick="novelChoose(' + i + ')">' + o + '</button>';
     });
   } else {
-    html += '<div class="opt"><button class="btn primary" onclick="novelContinue()">▶ 继续</button></div>';
+    html += '<button class="opt-btn" onclick="novelContinue()">▶ 继续</button>';
   }
-  // 系统导航（不打断小说，小字）
-  html += '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">' +
-    '<button class="btn small" onclick="switchTab(\'shop\')">🛍️ 商城（💜 ' + fmt(STATE.lust) + '）</button>' +
-    '<button class="btn small" onclick="switchTab(\'relations\')">📋 关系网</button>' +
-    '<button class="btn small" onclick="switchTab(\'ai\')">⚙️ 系统</button>' +
-  '</div>';
-  area.innerHTML = html;
+  card.innerHTML = html;
+  flow.appendChild(card);
+  flow.scrollTop = flow.scrollHeight;
 }
 /* 玩家选择选项：数值写回 + AI 续写下一段 */
 async function novelChoose(idx){
@@ -1556,8 +1604,8 @@ async function novelChoose(idx){
   applyChoiceFx(choice);
   showStory('');
   showStory('➤ 你选择了：' + choice);
-  const area = $("#actionArea");
-  if(area) area.innerHTML = '<div class="hint">故事继续……</div>';
+  const card = $("#optsCard");
+  if(card && card.parentNode) card.parentNode.removeChild(card);
   // 下一段：大概率遇到新的女生或与在场女生互动
   maybeSpawnGirl();
   const ctx = UI.novelCtx || { present: [], scene: "松江大学城的校园。" };
@@ -1611,10 +1659,12 @@ async function novelContinue(){
   renderNovelChoices();
   save();
 }
-/* 随机邂逅新女生（40% 概率）：生成角色卡并加入在场 */
+/* 邂逅新女生（40% 概率；dock + 强制 100%）：生成角色卡并加入在场 */
 function maybeSpawnGirl(){
   const ctx = UI.novelCtx || (UI.novelCtx = { present: [], scene: "" });
-  if(Math.random() < 0.40 && Object.values(STATE.girls).filter(g => g.met).length < 20){
+  const force = !!UI.forceSpawn;
+  UI.forceSpawn = false;
+  if((force || Math.random() < 0.40) && Object.values(STATE.girls).filter(g => g.met).length < 20){
     const ng = makeNewGirl();
     STATE.girls[ng.id] = ng;
     STATE.metGirls.push(ng.id);
@@ -1633,11 +1683,57 @@ function maybeSpawnGirl(){
   }
 }
 function renderTopbar(){
+  const met = Object.values(STATE.girls).filter(g => g.met).length;
+  const sub = '第 ' + STATE.day + ' 天 · ' + timeSlotCN() + ' · 认识 ' + met + ' 人';
   return '<div class="topbar">' +
-    '<span class="lust-badge">💜 ' + fmt(STATE.lust) + '</span>' +
-    '<span class="topbar-day">第 ' + STATE.day + ' 天 · ' + timeSlotCN() + '</span>' +
-    '<button class="btn small" onclick="switchTab(\'ai\')">⚙️</button>' +
+    '<div class="top-left">' +
+      '<div class="top-title">💜 ' + CONFIG.title + ' <span class="pencil">✏️</span></div>' +
+      '<div class="top-sub">' + sub + '</div>' +
+    '</div>' +
+    '<div class="top-btns">' +
+      '<button class="top-ico" onclick="switchTab(\'shop\')" title="商城">🛍️</button>' +
+      '<button class="top-ico" onclick="switchTab(\'rel\')" title="关系网">💗</button>' +
+      '<button class="top-ico" onclick="switchTab(\'status\')" title="状态">📊</button>' +
+      '<button class="top-ico" onclick="switchTab(\'card\')" title="角色档案">📄</button>' +
+      '<button class="top-ico" onclick="switchTab(\'save\')" title="存档">💾</button>' +
+      '<button class="top-ico" onclick="switchTab(\'ai\')" title="AI 设置">⚙️</button>' +
+    '</div>' +
   '</div>';
+}
+/* 底部操作栏（AI 助手风格）：+ 邂逅 · 模式标签 · 绿色推进按钮 */
+function renderDock(){
+  const modes = [
+    { key:"chat",    label:"💬 闲聊" },
+    { key:"flirt",   label:"🔥 暧昧" },
+    { key:"intimate",label:"💋 亲密" },
+    { key:"story",   label:"📖 主线" },
+  ];
+  const tags = modes.map(m =>
+    '<button class="mode-tag' + (UI.intent === m.key ? " on" : "") + '" data-key="' + m.key + '" onclick="setIntent(\'' + m.key + '\')">' + m.label + '</button>'
+  ).join('');
+  return '<div class="dock"><div class="dock-bar">' +
+    '<button class="dock-plus" onclick="dockEncounter()" title="邂逅新女生">+</button>' +
+    '<div class="mode-tags">' + tags + '</div>' +
+    '<button class="dock-send" id="dockSend" onclick="dockGo()" title="推进剧情">↑</button>' +
+  '</div></div>';
+}
+/* 切换互动意图：注入 AI prompt，让剧情按所选方向走 */
+function setIntent(k){
+  UI.intent = k;
+  document.querySelectorAll('.mode-tag').forEach(b => {
+    b.classList.toggle('on', b.getAttribute('data-key') === k);
+  });
+}
+/* dock + 按钮：强制下一段邂逅新女生 */
+function dockEncounter(){
+  if(UI.typing){ return; }
+  UI.forceSpawn = true;
+  novelContinue();
+}
+/* dock ↑ 按钮：推进剧情（无选项时继续；有选项时也视为直接推进） */
+function dockGo(){
+  if(UI.typing) return;
+  novelContinue();
 }
 /* 时段中文（互动式小说轻量时间，4 时段循环） */
 function timeSlotCN(){
@@ -1661,7 +1757,10 @@ function showStory(text){
   const box = $("#storyBox");
   if(!box) return;
   const node = document.createElement('div');
-  node.style.marginBottom = '10px';
+  // 分类：➤=玩家选择(右对齐绿泡) ；✨/——=系统提示(居中) ；其他=AI消息(左对齐白卡)
+  if(text.indexOf('➤') === 0) node.className = 'msg me';
+  else if(text.indexOf('✨') === 0 || text.indexOf('——') === 0) node.className = 'msg sys';
+  else node.className = 'msg ai';
   node.textContent = text;
   box.appendChild(node);
   box.scrollTop = box.scrollHeight;
@@ -1678,7 +1777,7 @@ function showStoryStream(onChunk){
   const box = $("#storyBox");
   if(!box) return { append(){} };
   const node = document.createElement('div');
-  node.style.marginBottom = '10px';
+  node.className = 'msg ai';
   box.appendChild(node);
   const append = (txt) => {
     node.textContent += txt;
@@ -1695,7 +1794,7 @@ function typeLocalText(text, speed){
     const box = $("#storyBox");
     if(!box){ resolve(); return; }
     const node = document.createElement('div');
-    node.style.marginBottom = '10px';
+    node.className = 'msg ai';
     box.appendChild(node);
     box.scrollTop = box.scrollHeight;
     let i = 0;
@@ -1738,7 +1837,7 @@ function openInteract(gid){
       '<div class="hint">' + g.personality + '</div>' +
       '<div class="hint">🔥欲望 ' + g.lust + ' ｜ 💗好感 ' + g.aff + ' ｜ 阶段 ' + ph.name + '</div></div></div>' +
     '</div>' +
-    '<div class="story-box" id="storyBox"></div>' +
+    '<div class="chat-flow" id="storyBox" style="flex:0 0 auto;max-height:40dvh;padding:0 0 8px"></div>' +
     '<div id="actButtons"></div>' +
     '<button class="btn ghost" onclick="renderMain()">← 返回</button>';
   const oldBox = _prevStoryHTML;
@@ -2220,7 +2319,7 @@ function showSystem(){
 function renderSystem(){
   const app = $("#app");
   app.innerHTML = renderTopbar() +
-    '<div class="tab-bar">' +
+    '<div class="sys-view"><div class="tab-bar">' +
       '<div class="tab' + (UI.tab === "status" ? " on" : "") + '" onclick="switchTab(\'status\')">📊 状态</div>' +
       '<div class="tab' + (UI.tab === "rel" ? " on" : "") + '" onclick="switchTab(\'rel\')">💗 关系网</div>' +
       '<div class="tab' + (UI.tab === "shop" ? " on" : "") + '" onclick="switchTab(\'shop\')">🛒 商城</div>' +
@@ -2229,7 +2328,7 @@ function renderSystem(){
       '<div class="tab' + (UI.tab === "ai" ? " on" : "") + '" onclick="switchTab(\'ai\')">⚙️ AI 设置</div>' +
     '</div>' +
     '<div id="sysContent"></div>' +
-    '<button class="btn ghost" onclick="renderMain()">← 返回主界面</button>';
+    '<button class="btn ghost" onclick="renderMain()">← 返回主界面</button></div>';
   if(UI.tab === "status") renderStatus();
   else if(UI.tab === "rel") renderRelations();
   else if(UI.tab === "shop") renderShop();
