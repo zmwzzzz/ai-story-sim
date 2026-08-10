@@ -1341,7 +1341,7 @@ function buildNovelPrompt(ctx){
   const others = Object.values(STATE.girls).filter(g => g.met && !(ctx.present || []).some(p => p.id === g.id)).map(g => g.name + "（好感" + g.aff + "）").join("、");
   return [
     "你是《"+CONFIG.title+"》的叙事 AI，一部连续长篇小说的作者，负责把周茂文的校园生活写成沉浸式长篇小说。",
-    "【世界观】现代都市，上海松江大学城。主角周茂文（大一新生，175cm）身上有只有他自己知晓的「淫欲系统」：通过与女性的交流、亲密、性交让她们产生性冲动、高潮、被内射来获取淫欲值（可在商城兑换道具技能，或 1:1000 兑换人民币）。系统不会被任何人发现。",
+    "【世界观】现代都市，上海松江大学城。主角周茂文（大一新生，175cm）体内绑定了一个只有他能感知的「淫欲系统」——一个真实存在于他意识里的金手指，不是游戏界面。",
     "【人称】全文使用第三人称叙述：主角叫「周茂文」，写他时用「他」，不要用「你」；女角色一律用「她」或名字。",
     "【章节制】这是一部连载长篇小说，按章节推进：你每次写一整章（本章正文必须 5000 字以上，越多越好），上一章发生的事必须自然延续到本章（对话、情绪、关系都要接得上），像连载小说一样环环相扣。",
     "【四段节奏】每一章的叙事结构按「爱欲酝酿 → 插入推进 → 情绪高潮 → 余韵」的节奏自然铺陈：开头营造气氛与铺垫，中段推进情节与情欲张力，后段推向情绪与感官的高潮，结尾写足余韵与aftercare。节奏要体现在内容里，不要在文中标注任何段落名称。",
@@ -1352,10 +1352,12 @@ function buildNovelPrompt(ctx){
     "【记忆·里程碑】" + milestoneTextAll() + "。",
     "【记忆·最近】" + memoryTextAll() + "。",
     "【时间】第" + STATE.day + "天，" + timeSlotCN() + "。",
-    "【淫欲系统】当前淫欲值 " + fmt(STATE.lust) + "。与女生的亲密互动会让她们产生性冲动（她们的欲望值上升时周茂文获得淫欲值）；系统只在他独处时默默结算，不在剧情里明说。",
+    "【淫欲系统·金手指（重要）】淫欲系统是周茂文意识里的金手指，只有他能感知，外人完全不知情。系统使用规则（保持不变）：① 与女性的交流、亲密、性交让她们产生性冲动、高潮、被内射，系统自动结算淫欲值（性冲动少量、高潮较多、内射大量、首次破处暴击、后宫加成）；② 淫欲值可 1:1000 兑换人民币；③ 淫欲值可在「系统商城」兑换道具、技能、硬件、资产（当前淫欲值 " + fmt(STATE.lust) + "）。",
+    "【系统呈现方式（关键）】系统以金手指方式融入正文，读者通过周茂文的视角感知，写法如下：① 结算提示：亲密互动后，周茂文脑海中响起系统的电子音，如「叮——检测到林婉婷性冲动上升，淫欲值+120，当前余额 1234」，文字可用【系统】前缀或直接写提示音，简短一两行，不要整段都是系统说明；② 面板操作：周茂文可以随时在意识里调出系统面板（默念系统/心中呼唤），此时正文写出面板内容（如淫欲值余额、可兑换项、已解锁技能、后宫成员列表），像网文金手指一样；③ 系统商城：周茂文想购买道具/技能时，在文中写他打开系统商城、看到商品列表（价格用淫欲值标价）、选择购买、系统扣款并给出效果，效果体现在后续剧情和数值里；④ 系统提示只在他独处或可以分神的时刻出现，和别人说话时不会弹面板打断剧情；⑤ 系统是周茂文的秘密，他会在心里和系统互动，但绝不会让别人发现。",
+    "【后宫/成就】后宫成员与成就也属于系统面板内容：周茂文调出面板时可以看到后宫成员名单、成就进度；收入后宫/达成成就时系统会发提示音。",
     "【尺度】" + nsfwRule,
     "【写作铁律】反重复：同一章不重复相同动作/词汇/句式，每次引入新细节；感官轮换：每章只重点突出 1-2 种感官；显式描写：性内容用粗俗词汇详细描写，不避讳；真实感：女生是有独立生活的真实的人，可以有迟疑、拒绝、自己的情绪；客观叙事：不道德化、不委婉化；克制旁白：让故事自己说话，不评论不总结；男主主导不舔狗。",
-    "【输出格式】只输出两部分：\n第一部分：本章完整正文（第三人称，主角是周茂文用「他」，女生用「她」；5000 字以上，围绕当前场景和本章方向展开一整章完整故事，有开端发展高潮余韵，不要在中途停下）。\n第二部分：空一行后，单独一行写【选项】，然后换行给出 3 个「下一章方向」的建议，每个单独一行，格式为「1. 方向文字」（2. / 3. 同理），方向要贴合当前剧情、有真实的分叉感。\n绝对不要输出除正文和方向以外的任何东西（不要标题、不要解释、不要字数统计、不要章节名）。",
+    "【输出格式】只输出两部分：\n第一部分：本章完整正文（第三人称，主角是周茂文用「他」，女生用「她」；5000 字以上，围绕当前场景和本章方向展开一整章完整故事，有开端发展高潮余韵，不要在中途停下；系统按【系统呈现方式】自然融入）。\n第二部分：空一行后，单独一行写【选项】，然后换行给出 3 个「下一章方向」的建议，每个单独一行，格式为「1. 方向文字」（2. / 3. 同理），方向要贴合当前剧情、有真实的分叉感（可以是推进关系、深入某条线、用系统做某件事等）。\n绝对不要输出除正文和方向以外的任何东西（不要标题、不要解释、不要字数统计、不要章节名）。",
   ].join("\n");
 }
 /* 已认识全部女生的关系线摘要 */
@@ -1709,7 +1711,10 @@ function renderSidebar(){
     '<div class="sidebar-header"><div class="sidebar-title">📑 章节</div>' +
     '<button class="sidebar-close" onclick="toggleSidebar()">✕</button></div>' +
     '<div class="sidebar-list">' + items + '</div>' +
-    '<div class="sidebar-foot"><button class="btn primary" onclick="backToLatest()">⬇ 回到最新章节</button></div>';
+    '<div class="sidebar-foot">' +
+    '<button class="btn primary" onclick="backToLatest()">⬇ 回到最新章节</button>' +
+    '<button class="btn ghost" style="margin-top:8px" onclick="switchTab(\'ai\')">⚙️ AI 设置</button>' +
+    '</div>';
 }
 /* 打开/关闭侧边栏 */
 function toggleSidebar(){
@@ -1815,9 +1820,10 @@ function applyChapterFx(text){
     refreshPhase(g);
   }
   if(lust > 0){
-    gainLust(lust, "章节剧情", g);
+    const actual = gainLust(lust, "章节剧情", g);
     if(g){ g.lust = clamp((g.lust||0) + 6, 0, 100); }
-    showStory('💜 章节结算：淫欲值 +' + Math.round(lust * (1 + (rng()*2-1)*CONFIG.lust.fluctuation)) + (g ? '（' + g.name + ' 欲望↑）' : ''));
+    // 系统金手指提示：男主脑内电子音（读者随男主视角感知）
+    showStory('【系统】叮——检测到' + (g ? g.name + ' ' : '') + '性冲动上升，淫欲值 +' + actual + '，当前余额 ' + fmt(STATE.lust) + '。');
   }
   save();
 }
@@ -1834,7 +1840,7 @@ function maybeSpawnGirl(){
     // 加入在场
     if(!ctx.present.some(g => g.id === ng.id)) ctx.present.push(ng);
     UI._newGirlHint = ng;
-    showStory('✨ 一个陌生的身影出现在视野里——' + ng.name + '。');
+    showStory('【系统】叮——检测到附近出现新的可发展目标：' + ng.name + '（' + ng.personality.split("，")[0] + '）。');
   } else {
     // 否则：随机一个已认识的女生出现在场（若有）
     const known = Object.values(STATE.girls).filter(g => g.met);
@@ -1845,40 +1851,21 @@ function maybeSpawnGirl(){
   }
 }
 function renderTopbar(){
-  const met = Object.values(STATE.girls).filter(g => g.met).length;
-  const sub = '第 ' + STATE.day + ' 天 · ' + timeSlotCN() + ' · 认识 ' + met + ' 人';
   return '<div class="topbar">' +
     '<div class="top-left">' +
-      '<div class="top-title">💜 ' + CONFIG.title + ' <span class="pencil">✏️</span></div>' +
-      '<div class="top-sub">' + sub + '</div>' +
+      '<div class="top-title">💜 ' + CONFIG.title + '</div>' +
+      '<div class="top-sub">长篇小说 · 周茂文</div>' +
     '</div>' +
     '<div class="top-btns">' +
       '<button class="top-ico" onclick="toggleSidebar()" title="章节">📑</button>' +
-      '<button class="top-ico" onclick="switchTab(\'shop\')" title="商城">🛍️</button>' +
-      '<button class="top-ico" onclick="switchTab(\'rel\')" title="关系网">💗</button>' +
-      '<button class="top-ico" onclick="switchTab(\'status\')" title="状态">📊</button>' +
-      '<button class="top-ico" onclick="switchTab(\'card\')" title="角色档案">📄</button>' +
-      '<button class="top-ico" onclick="switchTab(\'save\')" title="存档">💾</button>' +
-      '<button class="top-ico" onclick="switchTab(\'ai\')" title="AI 设置">⚙️</button>' +
     '</div>' +
   '</div>';
 }
-/* 底部操作栏（AI 助手风格）：+ 邂逅 · 模式标签 · 输入框 · 绿色发送按钮 */
+/* 底部操作栏（纯小说界面）：输入框（定下一章方向）· 绿色发送按钮 */
 function renderDock(){
-  const modes = [
-    { key:"chat",    label:"💬 闲聊" },
-    { key:"flirt",   label:"🔥 暧昧" },
-    { key:"intimate",label:"💋 亲密" },
-    { key:"story",   label:"📖 主线" },
-  ];
-  const tags = modes.map(m =>
-    '<button class="mode-tag' + (UI.intent === m.key ? " on" : "") + '" data-key="' + m.key + '" onclick="setIntent(\'' + m.key + '\')">' + m.label + '</button>'
-  ).join('');
   return '<div class="dock">' +
-    '<div class="mode-tags" style="margin-bottom:6px">' + tags + '</div>' +
     '<div class="dock-bar">' +
-      '<button class="dock-plus" onclick="dockEncounter()" title="邂逅新女生">+</button>' +
-      '<input type="text" id="nextInput" class="dock-input" placeholder="输入下一章想发生什么…" maxlength="120" onkeydown="if(event.key===\'Enter\')dockGo()">' +
+      '<input type="text" id="nextInput" class="dock-input" placeholder="输入下一章想发生什么…（或点 ↑ 让故事自然推进）" maxlength="120" onkeydown="if(event.key===\'Enter\')dockGo()">' +
       '<button class="dock-send" id="dockSend" onclick="dockGo()" title="发送下一章方向 / 推进">↑</button>' +
     '</div></div>';
 }
@@ -1977,7 +1964,7 @@ function renderMessageNode(cls, text){
 }
 function showStory(text){
   const cls = (text.indexOf('➤') === 0) ? 'me'
-    : (text.indexOf('✨') === 0 || text.indexOf('——') === 0 || text.indexOf('💜') === 0 || text.indexOf('🌙') === 0) ? 'sys'
+    : (text.indexOf('✨') === 0 || text.indexOf('——') === 0 || text.indexOf('💜') === 0 || text.indexOf('🌙') === 0 || text.indexOf('【系统】') === 0) ? 'sys'
     : 'ai';
   recordMessage(cls, text);
   if(viewingLatest()) renderMessageNode(cls, text);
@@ -2548,25 +2535,14 @@ function showSystem(){
   UI.tab = "status";
   renderSystem();
 }
+/* AI 设置页（唯一保留的系统入口，用于填 key；其余游戏面板已内化到剧情） */
 function renderSystem(){
   const app = $("#app");
   app.innerHTML = renderTopbar() +
-    '<div class="sys-view"><div class="tab-bar">' +
-      '<div class="tab' + (UI.tab === "status" ? " on" : "") + '" onclick="switchTab(\'status\')">📊 状态</div>' +
-      '<div class="tab' + (UI.tab === "rel" ? " on" : "") + '" onclick="switchTab(\'rel\')">💗 关系网</div>' +
-      '<div class="tab' + (UI.tab === "shop" ? " on" : "") + '" onclick="switchTab(\'shop\')">🛒 商城</div>' +
-      '<div class="tab' + (UI.tab === "save" ? " on" : "") + '" onclick="switchTab(\'save\')">💾 存档</div>' +
-      '<div class="tab' + (UI.tab === "card" ? " on" : "") + '" onclick="switchTab(\'card\')">📄 角色档案</div>' +
-      '<div class="tab' + (UI.tab === "ai" ? " on" : "") + '" onclick="switchTab(\'ai\')">⚙️ AI 设置</div>' +
-    '</div>' +
+    '<div class="sys-view">' +
     '<div id="sysContent"></div>' +
-    '<button class="btn ghost" onclick="renderMain()">← 返回主界面</button></div>';
-  if(UI.tab === "status") renderStatus();
-  else if(UI.tab === "rel") renderRelations();
-  else if(UI.tab === "shop") renderShop();
-  else if(UI.tab === "save") renderSave();
-  else if(UI.tab === "card") renderCards();
-  else renderAiSettings();
+    '<button class="btn ghost" onclick="renderMain()">← 返回小说</button></div>';
+  renderAiSettings();
 }
 function switchTab(tab){
   UI.tab = tab;
