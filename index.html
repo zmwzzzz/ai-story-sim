@@ -1595,6 +1595,14 @@ async function encounter(){
   UI.typing = true;
   STATE.actionPoints -= 1;
   showStory('你走出宿舍，在校园里逛了逛……');
+  // 20% 概率遇到新朋友（男生，随机名+随机身份）
+  if(Math.random() < 0.20){
+    await encounterFriend();
+    UI.typing = false;
+    renderActionArea();
+    save();
+    return;
+  }
   // 随机生成一个新人（未定性）
   const ng = makeNewGirl();
   STATE.girls[ng.id] = ng;
@@ -1627,8 +1635,7 @@ async function encounter(){
   save();
   UI.typing = false;
 }
-function makeNewGirl(){
-  const pool = CONFIG.girl_pool;
+function makeNewGirl(){  const pool = CONFIG.girl_pool;
   // 优先填充空女主/女配槽位
   let slot = nextFreeSlot("g", CONFIG.girl_count.main);
   let role = "main";
@@ -1655,6 +1662,40 @@ function makeNewGirl(){
     aff: 5, lust: 0, mood: 70, phase: "stranger", met: true,
     orgasmCount: 0, creampieCount: 0, harem: false, lastInteract: 0,
   };
+}
+/* 邂逅遇到新朋友（男生，随机名+随机身份） */
+async function encounterFriend(){
+  const scene = pick(["在操场", "在宿舍楼", "在食堂", "在社团活动室", "在教室", "在篮球场", "在图书馆", "在校门口"]);
+  // 随机身份（不重复已用的）
+  const usedRoles = new Set(STATE.friends.map(f => f.role));
+  const avail = CONFIG.friend_roles.filter(r => !usedRoles.has(r));
+  const role = avail.length ? pick(avail) : pick(CONFIG.friend_roles);
+  // 随机男名（不重复）
+  const namePool = (typeof NAME_POOL !== "undefined" && NAME_POOL.male) ? NAME_POOL.male : ["阿杰","阿强","小军"];
+  const usedNames = new Set(STATE.friends.map(f => f.name));
+  const name = pickName(namePool, usedNames);
+  const newF = { id: "f" + (STATE.friends.length + 1), name: name, role: role };
+  STATE.friends.push(newF);
+  let text;
+  if(aiEnabled()){
+    try {
+      showStoryStream(append => { UI._streamAppend = append; });
+      text = await callAI(
+        "你是《" + CONFIG.title + "》的叙事 AI。你叫周茂文，第一人称。写一段 100-180 字的校园邂逅，遇到一个男生朋友（" + role + "，叫" + name + "），自然认识，场景：" + scene + "。不要暴露系统存在。",
+        "写出这段相识场景。",
+        (delta) => { if(UI._streamAppend) UI._streamAppend(delta); }
+      );
+      UI._streamAppend = null;
+    } catch(e){
+      UI._streamAppend = null;
+      text = "在" + scene + "，你认识了" + name + "（" + role + "），聊了几句，算是朋友了。";
+      showStory(text);
+    }
+  } else {
+    text = "在" + scene + "，你认识了" + name + "（" + role + "），聊了几句，算是朋友了。";
+    showStory(text);
+  }
+  showStory('👥 新朋友：' + name + '（' + role + '）已加入你的人际圈。');
 }
 
 /* ---------- 过天 ---------- */
