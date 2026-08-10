@@ -181,6 +181,9 @@ label.lbl{display:block;font-size:12px;color:var(--text-dim);margin:10px 0 4px}
 .dock-plus{flex-shrink:0;width:38px;height:38px;border-radius:12px;background:var(--bg-elev);
   border:none;font-size:20px;color:var(--text-dim);cursor:pointer;line-height:1}
 .dock-plus:active{background:var(--border)}
+.dock-input{flex:1;min-width:0;border:none;background:transparent;outline:none;
+  font-size:14px;color:var(--text);padding:0 2px;font-family:inherit}
+.dock-input::placeholder{color:var(--text-muted)}
 .mode-tags{flex:1;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:1px}
 .mode-tags::-webkit-scrollbar{display:none}
 .mode-tag{flex-shrink:0;white-space:nowrap;background:var(--bg-elev);border:none;color:var(--text-dim);
@@ -221,7 +224,7 @@ const CONFIG = {
     model:    "deepseek-v4-flash",
     nsfwLevel: 3,
     temperature: 0.95,
-    maxTokens: 8000,
+    maxTokens: 16384,
   },
 
   /* ---------- 男主 ---------- */
@@ -1304,20 +1307,22 @@ function buildNovelPrompt(ctx){
   // 已认识但不在场的女生（一句话带过，保持世界连续）
   const others = Object.values(STATE.girls).filter(g => g.met && !(ctx.present || []).some(p => p.id === g.id)).map(g => g.name + "（好感" + g.aff + "）").join("、");
   return [
-    "你是《"+CONFIG.title+"》的叙事 AI。你是一部连续互动小说的作者，负责把周茂文的校园生活写成沉浸式小说。",
-    "【世界观】现代都市，上海松江大学城。玩家周茂文（大一新生，175cm）身上有只有他自己知晓的「淫欲系统」：通过与女性的交流、亲密、性交让她们产生性冲动、高潮、被内射来获取淫欲值（可在商城兑换道具技能，或 1:1000 兑换人民币）。系统不会被任何人发现。",
-    "【写法核心】这是一部连续小说，不是孤立片段：上一幕发生的事必须自然延续到这一幕（对话、情绪、关系都要接得上），像连载一样环环相扣。",
+    "你是《"+CONFIG.title+"》的叙事 AI，一部连续长篇小说的作者，负责把周茂文的校园生活写成沉浸式长篇小说。",
+    "【世界观】现代都市，上海松江大学城。主角周茂文（大一新生，175cm）身上有只有他自己知晓的「淫欲系统」：通过与女性的交流、亲密、性交让她们产生性冲动、高潮、被内射来获取淫欲值（可在商城兑换道具技能，或 1:1000 兑换人民币）。系统不会被任何人发现。",
+    "【人称】全文使用第三人称叙述：主角叫「周茂文」，写他时用「他」，不要用「你」；女角色一律用「她」或名字。",
+    "【章节制】这是一部连载长篇小说，按章节推进：你每次写一整章（本章正文必须 5000 字以上，越多越好），上一章发生的事必须自然延续到本章（对话、情绪、关系都要接得上），像连载小说一样环环相扣。",
+    "【四段节奏】每一章的叙事结构按「爱欲酝酿 → 插入推进 → 情绪高潮 → 余韵」的节奏自然铺陈：开头营造气氛与铺垫，中段推进情节与情欲张力，后段推向情绪与感官的高潮，结尾写足余韵与aftercare。节奏要体现在内容里，不要在文中标注任何段落名称。",
     "【当前场景】" + (ctx.scene || "周茂文在松江大学城的日常生活") + "。",
-    "【互动意图】" + ({ chat:"这一段以轻松闲聊、日常相处、自然拉近关系为主；可以多写对话和氛围。", flirt:"这一段以暧昧调情为主：眼神、肢体靠近、欲言又止的试探，气氛缓缓升温。", intimate:"这一段大胆推动亲密接触：贴近、牵手、拥抱、接吻等，按尺度铁律写到位，不要扭捏。", story:"这一段推进主线：事件、冲突、关键转折，或某个女生的专属剧情线。" })[UI.intent] || "轻松推进剧情。",
+    "【本章方向】" + (ctx.direction || "自然推进剧情，延续已展开的关系线。"),
     "【在场人物】" + (present || "暂无（独自一人或与路人）") + (others ? "。其他认识的人（不在场）：" + others : "") + "。",
     "【关系剧情线】" + flagsTextAll() + "——写剧情时必须延续这条线，不要每次从零开始。",
     "【记忆·里程碑】" + milestoneTextAll() + "。",
     "【记忆·最近】" + memoryTextAll() + "。",
     "【时间】第" + STATE.day + "天，" + timeSlotCN() + "。",
-    "【淫欲系统】当前淫欲值 " + fmt(STATE.lust) + "。与女生的亲密互动会让她们产生性冲动（她们的欲望值上升时你获得淫欲值）；系统只在你独处时默默结算，不在剧情里明说。",
+    "【淫欲系统】当前淫欲值 " + fmt(STATE.lust) + "。与女生的亲密互动会让她们产生性冲动（她们的欲望值上升时周茂文获得淫欲值）；系统只在他独处时默默结算，不在剧情里明说。",
     "【尺度】" + nsfwRule,
-    "【写作铁律】反重复：同一幕不重复相同动作/词汇/句式，每次引入新细节；感官轮换：每幕只重点突出 1-2 种感官；显式描写：性内容用粗俗词汇详细描写，不避讳；真实感：女生是有独立生活的真实的人，可以有迟疑、拒绝、自己的情绪；客观叙事：不道德化、不委婉化；克制旁白：让故事自己说话，不评论不总结；男主主导不舔狗。",
-    "【输出格式】只输出两部分：\n第一部分：250-450 字的连续小说正文（第二人称，你是周茂文；女生用「她」；聚焦当下场景、动作、对话、氛围、她的反应）。\n第二部分：空一行后，单独一行写【选项】，然后换行给出 2-3 个「接下来做什么」的选项，每个选项单独一行，格式为「1. 选项文字」（2. / 3. 同理）。选项要贴合当前剧情、有真实的分叉感（可以是继续推进、换话题、试探更亲密、离开、去别的地方等）。\n绝对不要输出除正文和选项以外的任何东西（不要标题、不要解释、不要数值）。",
+    "【写作铁律】反重复：同一章不重复相同动作/词汇/句式，每次引入新细节；感官轮换：每章只重点突出 1-2 种感官；显式描写：性内容用粗俗词汇详细描写，不避讳；真实感：女生是有独立生活的真实的人，可以有迟疑、拒绝、自己的情绪；客观叙事：不道德化、不委婉化；克制旁白：让故事自己说话，不评论不总结；男主主导不舔狗。",
+    "【输出格式】只输出两部分：\n第一部分：本章完整正文（第三人称，主角是周茂文用「他」，女生用「她」；5000 字以上，围绕当前场景和本章方向展开一整章完整故事，有开端发展高潮余韵，不要在中途停下）。\n第二部分：空一行后，单独一行写【选项】，然后换行给出 3 个「下一章方向」的建议，每个单独一行，格式为「1. 方向文字」（2. / 3. 同理），方向要贴合当前剧情、有真实的分叉感。\n绝对不要输出除正文和方向以外的任何东西（不要标题、不要解释、不要字数统计、不要章节名）。",
   ].join("\n");
 }
 /* 已认识全部女生的关系线摘要 */
@@ -1485,7 +1490,7 @@ async function callAI(systemPrompt, userPrompt, onChunk){
  * ==========================================================================*/
 
 /* ---------- 全局 UI 状态 ---------- */
-const UI = { screen: "main", tab: "status", selectedGirl: null, currentEvent: null, typing: false, novelCtx: null, novelOpts: [], intent: "chat", forceSpawn: false };
+const UI = { screen: "main", tab: "status", selectedGirl: null, currentEvent: null, typing: false, novelCtx: null, novelOpts: [], intent: "chat", forceSpawn: false, chapter: 0 };
 
 /* ---------- 主界面渲染 ---------- */
 /* 系统绑定：开局触发 */
@@ -1536,24 +1541,26 @@ function renderMain(){
     }
   }
   _prevStoryHTML = null;
-  renderNovelChoices();
+  renderChapterEnd();
 }
-/* 小说开场：生成初始场景并开始连续剧情 */
+/* 章节制小说：novelStart 生成第一章；novelChoose/novelInput/novelContinue 生成下一章 */
 async function novelStart(){
   if(UI.typing) return;
   UI.typing = true;
   clearStory();
-  UI.novelCtx = { present: [], scene: "松江大学城，大一新学期的某个" + timeSlotCN() + "。" };
+  UI.chapter = 1;
+  UI.novelCtx = { present: [], scene: "松江大学城，大一新学期的某个" + timeSlotCN() + "。", direction: "" };
   // 开场可能直接遇到一个女生
   maybeSpawnGirl();
   const prompt = buildNovelPrompt(UI.novelCtx);
   const card = $("#optsCard");
   if(card && card.parentNode) card.parentNode.removeChild(card);
+  showStory('—— 📖 第 1 章 ——');
   let text;
   if(aiEnabled()){
     try {
       showStoryStream(append => { UI._streamAppend = novelFilter(append); });
-      text = await callAI(prompt, "开始写这段小说。", (delta) => { if(UI._streamAppend) UI._streamAppend(delta); });
+      text = await callAI(prompt, "请写出第一章的完整正文。", (delta) => { if(UI._streamAppend) UI._streamAppend(delta); });
       UI._streamAppend = null;
     } catch(e){
       UI._streamAppend = null;
@@ -1564,99 +1571,124 @@ async function novelStart(){
     text = "清晨的阳光洒进宿舍，周茂文伸了个懒腰。大一的生活刚刚开始，他走在松江大学城的林荫道上，不知道今天会遇到什么人。";
     await typeLocalText(text);
   }
+  finishChapter(text);
+}
+/* 章节收尾：解析方向选项 + 结算 + 渲染章末卡片 */
+function finishChapter(text){
+  applyChapterFx(text);
   const parsed = parseNovelOutput(text);
   UI.novelOpts = parsed.opts;
+  UI.chapterLen = (parsed.body || "").length;
   UI.typing = false;
-  renderNovelChoices();
+  renderChapterEnd();
   save();
 }
-/* 每段剧情后的选项渲染（渲染为剧情流末尾的选项卡片） */
-function renderNovelChoices(){
+/* 章末卡片：本章字数 + AI 给的 3 个下一章方向 + 提示可自由输入 */
+function renderChapterEnd(){
   const flow = $("#storyBox");
   if(!flow) return;
-  // 移除旧选项卡片，重新渲染在最新消息下方
+  // 尚未开始第一章时不渲染
+  if(!UI.chapter || UI.typing) return;
   const oldCard = $("#optsCard");
   if(oldCard && oldCard.parentNode) oldCard.parentNode.removeChild(oldCard);
   const opts = (UI.novelOpts || []);
   const card = document.createElement('div');
   card.className = 'opts-card';
   card.id = 'optsCard';
-  let html = '<div class="opts-title">💡 接下来……（选择影响走向与数值，或点下方 ↑ 让故事自然推进）</div>';
+  let html = '<div class="opts-title">📖 第 ' + UI.chapter + ' 章 完成 —— 本章共 ' + (UI.chapterLen||0) + ' 字</div>';
+  html += '<div class="hint" style="margin:2px 0 8px">选一个方向，或在下方输入框自由输入下一章想发生什么，点 ↑ 发送：</div>';
   if(opts.length){
     opts.forEach((o, i) => {
-      html += '<button class="opt-btn" onclick="novelChoose(' + i + ')">' + o + '</button>';
+      html += '<button class="opt-btn" onclick="novelChoose(' + i + ')">➤ ' + o + '</button>';
     });
   } else {
-    html += '<button class="opt-btn" onclick="novelContinue()">▶ 继续</button>';
+    html += '<button class="opt-btn" onclick="novelContinue()">▶ 继续（自然推进）</button>';
   }
   card.innerHTML = html;
   flow.appendChild(card);
   flow.scrollTop = flow.scrollHeight;
 }
-/* 玩家选择选项：数值写回 + AI 续写下一段 */
+/* 玩家选 AI 给的下一章方向 */
 async function novelChoose(idx){
   if(UI.typing) return;
   const opts = (UI.novelOpts || []);
   const choice = opts[idx];
   if(!choice) return;
-  UI.typing = true;
-  advanceTime(); // 每段剧情推进一个时段
+  UI.novelCtx = UI.novelCtx || { present: [], scene: "" };
+  UI.novelCtx.direction = choice;
   applyChoiceFx(choice);
-  showStory('');
-  showStory('➤ 你选择了：' + choice);
-  const card = $("#optsCard");
-  if(card && card.parentNode) card.parentNode.removeChild(card);
-  // 下一段：大概率遇到新的女生或与在场女生互动
-  maybeSpawnGirl();
-  const ctx = UI.novelCtx || { present: [], scene: "松江大学城的校园。" };
-  ctx.scene = "上一幕结束时你选择了「" + choice + "」。" + (ctx.scene || "");
-  let text;
-  if(aiEnabled()){
-    try {
-      showStoryStream(append => { UI._streamAppend = novelFilter(append); });
-      text = await callAI(buildNovelPrompt(ctx), "你选择了「" + choice + "」，请接着写下一段。", (delta) => { if(UI._streamAppend) UI._streamAppend(delta); });
-      UI._streamAppend = null;
-    } catch(e){
-      UI._streamAppend = null;
-      text = "你做出了选择，故事继续。";
-      await typeLocalText(text);
-    }
-  } else {
-    text = "你做出了选择，故事继续。";
-    await typeLocalText(text);
-  }
-  const parsed = parseNovelOutput(text);
-  UI.novelOpts = parsed.opts;
-  UI.typing = false;
-  renderNovelChoices();
-  save();
+  showStory('➤ 下一章方向：' + choice);
+  await genChapter();
 }
-/* 无选项时继续 */
+/* 玩家自由输入下一章方向 */
+async function novelInput(text){
+  if(UI.typing) return;
+  text = (text || "").trim();
+  UI.novelCtx = UI.novelCtx || { present: [], scene: "" };
+  UI.novelCtx.direction = text;
+  applyChoiceFx(text);
+  showStory('➤ 你为下一章定下方向：' + text);
+  await genChapter();
+}
+/* 无方向时自然推进下一章 */
 async function novelContinue(){
   if(UI.typing) return;
+  UI.novelCtx = UI.novelCtx || { present: [], scene: "" };
+  UI.novelCtx.direction = "";
+  showStory('➤ 让故事自然推进');
+  await genChapter();
+}
+/* 生成下一章（统一入口） */
+async function genChapter(){
   UI.typing = true;
-  advanceTime();
+  UI.chapter = (UI.chapter||0) + 1;
+  advanceTime(); // 每章推进一个时段
   maybeSpawnGirl();
-  const ctx = UI.novelCtx || { present: [], scene: "松江大学城的校园。" };
+  const card = $("#optsCard");
+  if(card && card.parentNode) card.parentNode.removeChild(card);
+  const ctx = UI.novelCtx || (UI.novelCtx = { present: [], scene: "", direction: "" });
+  ctx.scene = "上一章结束时" + (ctx.direction ? "，周茂文决定「" + ctx.direction + "」" : "，剧情自然推进") + "。" + (ctx.scene || "");
+  const prompt = buildNovelPrompt(ctx);
+  showStory('—— 📖 第 ' + UI.chapter + ' 章 ——');
   let text;
   if(aiEnabled()){
     try {
       showStoryStream(append => { UI._streamAppend = novelFilter(append); });
-      text = await callAI(buildNovelPrompt(ctx), "接着写下一段。", (delta) => { if(UI._streamAppend) UI._streamAppend(delta); });
+      text = await callAI(prompt, "请写出本章的完整正文（5000 字以上）。", (delta) => { if(UI._streamAppend) UI._streamAppend(delta); });
       UI._streamAppend = null;
     } catch(e){
       UI._streamAppend = null;
-      text = "故事继续推进。";
+      text = "故事继续推进，周茂文的一天还在继续。";
       await typeLocalText(text);
     }
   } else {
-    text = "故事继续推进。";
+    text = "故事继续推进，周茂文的一天还在继续。";
     await typeLocalText(text);
   }
-  const parsed = parseNovelOutput(text);
-  UI.novelOpts = parsed.opts;
-  UI.typing = false;
-  renderNovelChoices();
+  finishChapter(text);
+}
+/* 章节正文关键词结算：扫描文中出现的性爱节点自动累计淫欲值/女生状态 */
+function applyChapterFx(text){
+  if(!text) return;
+  const present = (UI.novelCtx && UI.novelCtx.present) || [];
+  const g = present[0] || null;
+  let lust = 0, aff = 0;
+  if(/内射|射进|射入|灌满/.test(text))   lust += CONFIG.lust.creampie || 1200;
+  if(/高潮|潮吹|泄了/.test(text))         lust += CONFIG.lust.orgasm  || 500;
+  if(/插入|进入|抽插|操|顶弄/.test(text)) lust += 300;
+  if(/接吻|吻住|唇齿/.test(text))         lust += 50;
+  if(/抚摸|爱抚|揉|舔|吮/.test(text))     lust += 30;
+  if(/暧昧|脸红|心跳|靠近|牵手|拥抱/.test(text)) { lust += 15; aff += 2; }
+  if(/关心|安慰|照顾|逗她|哄/.test(text)) aff += 2;
+  if(aff !== 0 && g){
+    applyFx(g, { aff: aff });
+    refreshPhase(g);
+  }
+  if(lust > 0){
+    gainLust(lust, "章节剧情", g);
+    if(g){ g.lust = clamp((g.lust||0) + 6, 0, 100); }
+    showStory('💜 章节结算：淫欲值 +' + Math.round(lust * (1 + (rng()*2-1)*CONFIG.lust.fluctuation)) + (g ? '（' + g.name + ' 欲望↑）' : ''));
+  }
   save();
 }
 /* 邂逅新女生（40% 概率；dock + 强制 100%）：生成角色卡并加入在场 */
@@ -1700,7 +1732,7 @@ function renderTopbar(){
     '</div>' +
   '</div>';
 }
-/* 底部操作栏（AI 助手风格）：+ 邂逅 · 模式标签 · 绿色推进按钮 */
+/* 底部操作栏（AI 助手风格）：+ 邂逅 · 模式标签 · 输入框 · 绿色发送按钮 */
 function renderDock(){
   const modes = [
     { key:"chat",    label:"💬 闲聊" },
@@ -1711,11 +1743,13 @@ function renderDock(){
   const tags = modes.map(m =>
     '<button class="mode-tag' + (UI.intent === m.key ? " on" : "") + '" data-key="' + m.key + '" onclick="setIntent(\'' + m.key + '\')">' + m.label + '</button>'
   ).join('');
-  return '<div class="dock"><div class="dock-bar">' +
-    '<button class="dock-plus" onclick="dockEncounter()" title="邂逅新女生">+</button>' +
-    '<div class="mode-tags">' + tags + '</div>' +
-    '<button class="dock-send" id="dockSend" onclick="dockGo()" title="推进剧情">↑</button>' +
-  '</div></div>';
+  return '<div class="dock">' +
+    '<div class="mode-tags" style="margin-bottom:6px">' + tags + '</div>' +
+    '<div class="dock-bar">' +
+      '<button class="dock-plus" onclick="dockEncounter()" title="邂逅新女生">+</button>' +
+      '<input type="text" id="nextInput" class="dock-input" placeholder="输入下一章想发生什么…" maxlength="120" onkeydown="if(event.key===\'Enter\')dockGo()">' +
+      '<button class="dock-send" id="dockSend" onclick="dockGo()" title="发送下一章方向 / 推进">↑</button>' +
+    '</div></div>';
 }
 /* 切换互动意图：注入 AI prompt，让剧情按所选方向走 */
 function setIntent(k){
@@ -1724,16 +1758,23 @@ function setIntent(k){
     b.classList.toggle('on', b.getAttribute('data-key') === k);
   });
 }
-/* dock + 按钮：强制下一段邂逅新女生 */
+/* dock + 按钮：强制下一章邂逅新女生 */
 function dockEncounter(){
   if(UI.typing){ return; }
   UI.forceSpawn = true;
   novelContinue();
 }
-/* dock ↑ 按钮：推进剧情（无选项时继续；有选项时也视为直接推进） */
+/* dock ↑ 按钮：输入框有内容 → 按输入方向写下一章；无内容 → 自然推进 */
 function dockGo(){
   if(UI.typing) return;
-  novelContinue();
+  const inp = $("#nextInput");
+  const text = (inp && inp.value || "").trim();
+  if(text){
+    if(inp) inp.value = "";
+    novelInput(text);
+  } else {
+    novelContinue();
+  }
 }
 /* 时段中文（互动式小说轻量时间，4 时段循环） */
 function timeSlotCN(){
@@ -1759,7 +1800,7 @@ function showStory(text){
   const node = document.createElement('div');
   // 分类：➤=玩家选择(右对齐绿泡) ；✨/——=系统提示(居中) ；其他=AI消息(左对齐白卡)
   if(text.indexOf('➤') === 0) node.className = 'msg me';
-  else if(text.indexOf('✨') === 0 || text.indexOf('——') === 0) node.className = 'msg sys';
+  else if(text.indexOf('✨') === 0 || text.indexOf('——') === 0 || text.indexOf('💜') === 0 || text.indexOf('🌙') === 0) node.className = 'msg sys';
   else node.className = 'msg ai';
   node.textContent = text;
   box.appendChild(node);
@@ -2016,7 +2057,7 @@ async function doAct(optIdx){
   renderTopbarStatic();
   save();
   UI.typing = false;
-  renderNovelChoices();
+  renderChapterEnd();
   // 性爱场景单独处理
   if(ev.act === "性爱"){
     sexualScene(g, opt, roll);
@@ -2107,7 +2148,7 @@ async function doBranch(bi){
   renderTopbarStatic();
   save();
   UI.typing = false;
-  renderNovelChoices();
+  renderChapterEnd();
   setTimeout(() => renderMain(), 800);
 }
 function renderTopbarStatic(){
@@ -2186,7 +2227,7 @@ async function encounter(){
   if(Math.random() < 0.20){
     await encounterFriend();
     UI.typing = false;
-    renderNovelChoices();
+    renderChapterEnd();
     save();
     return;
   }
@@ -2218,7 +2259,7 @@ async function encounter(){
   }
   showStory('📌 ' + ng.name + ' 已进入关系网（未定性），你可以在关系网中决定她的定位。');
   checkMilestones(ng);
-  renderNovelChoices();
+  renderChapterEnd();
   save();
   UI.typing = false;
 }
