@@ -730,16 +730,16 @@ const CONFIG = {
 
   /* ---------- 成就系统 ---------- */
   achievements: [
-    { id:"a1", name:"初尝甜头", desc:"第一次获得淫欲值", check:()=>STATE.totalLustGain>0, emoji:"💜" },
-    { id:"a2", name:"破处暴击", desc:"第一次让处女高潮+内射（淫欲值x3）", check:()=>STATE.virginConquered>0, emoji:"💥" },
-    { id:"a3", name:"初夜双收", desc:"第一次让对方高潮并内射", check:()=>STATE.creampieCount>0, emoji:"🌊" },
-    { id:"a4", name:"后宫雏形", desc:"第一名女生进入后宫", check:()=>STATE.harem.length>=1, emoji:"👑" },
-    { id:"a5", name:"后宫初成", desc:"后宫人数达到 3", check:()=>STATE.harem.length>=3, emoji:"🏰" },
-    { id:"a6", name:"后宫满员", desc:"后宫人数达到 5（上限）", check:()=>STATE.harem.length>=5, emoji:"👑" },
-    { id:"a7", name:"先富一步", desc:"累计提现 10 万元", check:()=>STATE.totalCash>=100000, emoji:"💰" },
-    { id:"a8", name:"万人迷", desc:"让 3 名女生达到满好感", check:()=>Object.values(STATE.girls).filter(g=>g.aff>=100).length>=3, emoji:"✨" },
-    { id:"a9", name:"征服者", desc:"让 3 名女生高潮", check:()=>STATE.orgasmCount>=3, emoji:"🔥" },
-    { id:"a10", name:"情场高手", desc:"累计获得 5000 淫欲值", check:()=>STATE.totalLustGain>=5000, emoji:"💎" },
+    { id:"a1", name:"初尝甜头", desc:"第一次获得淫欲值", emoji:"💜", reward:{ lust:500 }, check:()=>STATE.totalLustGain>0 },
+    { id:"a2", name:"破处暴击", desc:"第一次让处女高潮+内射（淫欲值x3）", emoji:"💥", reward:{ lust:2000 }, check:()=>STATE.virginConquered>0 },
+    { id:"a3", name:"初夜双收", desc:"第一次让对方高潮并内射", emoji:"🌊", reward:{ lust:1500 }, check:()=>STATE.creampieCount>0 },
+    { id:"a4", name:"后宫雏形", desc:"第一名女生进入后宫", emoji:"👑", reward:{ lust:3000 }, check:()=>STATE.harem.length>=1 },
+    { id:"a5", name:"后宫初成", desc:"后宫人数达到 3", emoji:"🏰", reward:{ lust:6000, asset:"luxury" }, check:()=>STATE.harem.length>=3 },
+    { id:"a6", name:"后宫满员", desc:"后宫人数达到 5（上限）", emoji:"👑", reward:{ lust:12000, asset:"car" }, check:()=>STATE.harem.length>=5 },
+    { id:"a7", name:"先富一步", desc:"累计提现 10 万元", emoji:"💰", reward:{ cash:200000 }, check:()=>STATE.totalCash>=100000 },
+    { id:"a8", name:"万人迷", desc:"让 3 名女生达到满好感", emoji:"✨", reward:{ lust:3000 }, check:()=>Object.values(STATE.girls).filter(g=>g.aff>=100).length>=3 },
+    { id:"a9", name:"征服者", desc:"让 3 名女生高潮", emoji:"🔥", reward:{ lust:2000 }, check:()=>STATE.orgasmCount>=3 },
+    { id:"a10", name:"情场高手", desc:"累计获得 5000 淫欲值", emoji:"💎", reward:{ lust:5000 }, check:()=>STATE.totalLustGain>=5000 },
   ],
 
   /* ---------- 本地兑底文案池 ---------- */
@@ -1348,6 +1348,9 @@ function buildNovelPrompt(ctx){
     "【当前场景】" + (ctx.scene || "周茂文在松江大学城的日常生活") + "。",
     "【本章方向】" + (ctx.direction || "自然推进剧情，延续已展开的关系线。"),
     "【在场人物】" + (present || "暂无（独自一人或与路人）") + (others ? "。其他认识的人（不在场）：" + others : "") + "。",
+    playerStatsContext(),
+    friendsContext(),
+    eventSceneContext(ctx.present),
     "【关系剧情线】" + flagsTextAll() + "——写剧情时必须延续这条线，不要每次从零开始。",
     "【记忆·里程碑】" + milestoneTextAll() + "。",
     "【记忆·最近】" + memoryTextAll() + "。",
@@ -1356,6 +1359,7 @@ function buildNovelPrompt(ctx){
     "【系统呈现方式（关键）】系统事件由 AI 用文字直接叙述，自然融入正文，写法如下：① 结算叙述：亲密互动后，直接写系统消息，如「叮——检测到林婉婷性冲动上升，淫欲值+120，当前余额 1234」，可作为一行叙述或提示音文字，简短一两行，不要整段都是系统说明；② 系统使用：周茂文需要用系统时（查看余额、购买道具、兑换人民币、查看后宫/成就），AI 直接叙述他用了系统以及系统的回应，如「周茂文在心里打开系统商城，浏览着货架上的道具」然后写出商品与价格、购买结果与效果，不需要强调面板长什么样、读者跟着看什么——就是正常的文字叙述；③ 系统消息在他独处或可以分神的时刻出现，和别人说话时不会插入打断；④ 系统是周茂文的秘密，他会在心里和系统互动，但绝不会让别人发现。",
     "【系统商城·真实货架（重要）】商城里的商品必须使用下面的真实清单（名称和价格都不要虚构、不要自己编新商品；资产数量庞大，每次写商城只需展示清单里的几个例子，或叙述他翻看不同分类，不用全部列出）：\n" + systemShopContext(),
     "【后宫/成就】后宫成员与成就属于系统内容：周茂文用到时，AI 直接叙述他看到的后宫成员名单、成就进度；收入后宫/达成成就时写系统提示音。",
+    "【成就列表】" + CONFIG.achievements.map(a => a.name + "（" + a.desc + "）").join("、") + "。当剧情推进触发这些成就条件时，AI 写系统提示音宣告成就达成（如「叮——达成成就：破处暴击，淫欲值翻倍！」），成就内容要贴合剧情自然出现，不要刻意罗列。",
     "【尺度】" + nsfwRule,
     "【写作铁律】反重复：同一章不重复相同动作/词汇/句式，每次引入新细节；感官轮换：每章只重点突出 1-2 种感官；显式描写：性内容用粗俗词汇详细描写，不避讳；真实感：女生是有独立生活的真实的人，可以有迟疑、拒绝、自己的情绪；客观叙事：不道德化、不委婉化；克制旁白：让故事自己说话，不评论不总结；男主主导不舔狗。",
     "【输出格式】只输出两部分：\n第一部分：本章完整正文（第三人称，主角是周茂文用「他」，女生用「她」；5000 字以上，围绕当前场景和本章方向展开一整章完整故事，有开端发展高潮余韵，不要在中途停下；系统按【系统呈现方式】自然融入）。\n第二部分：空一行后，单独一行写【选项】，然后换行给出 3 个「下一章方向」的建议，每个单独一行，格式为「1. 方向文字」（2. / 3. 同理），方向要贴合当前剧情、有真实的分叉感（可以是推进关系、深入某条线、用系统做某件事等）。\n绝对不要输出除正文和方向以外的任何东西（不要标题、不要解释、不要字数统计、不要章节名）。",
@@ -1386,7 +1390,28 @@ function systemShopContext(){
       parts.push("【" + (catName[k]||k) + "】共 " + count + " 件，例如：" + samples);
     });
   }
+  // 生成规则：AI 可在此规则内自行生成与真实风格一致的合理商品（补充，不替代真实清单）
+  parts.push("【生成规则（补充）】如剧情需要展示清单外的商品，可按以下规则自生成：① 道具——日常向（催情香氛/精力药剂/助兴用品，价格 100-800 淫欲值）与邪道向（控制/偷窥/暗示类，价格 150-2500 淫欲值），名字贴合淫欲系统风格；② 技能——社交向（口才/魅力/共情）与征服向（读心/支配/催眠），价格 400-5000 淫欲值，名字带「术/之眼/之音」等系统感后缀；③ 硬件——系统强化·长度/粗度/持久，价格 1000 淫欲值；④ 资产——真实品牌（豪车/豪宅/名表/珠宝/收藏品），系统价=市场价×折扣÷1000，折算后通常几十到几万淫欲值。");
   return parts.join("\n");
+}
+/* 男主属性/硬件快照（注入 prompt，让 AI 写剧情时体现周茂文的优势） */
+function playerStatsContext(){
+  const attrs = CONFIG.attrs.map(a => a.name + " " + getAttr(a.key)).join("、");
+  const hw = "长度" + STATE.hardware.len + "cm、粗度" + STATE.hardware.girth + "cm、持久" + STATE.hardware.dura + "分钟";
+  return "【男主属性】周茂文：" + attrs + "。【硬件】" + hw + "。写剧情时自然体现这些优势（外貌/身材/谈吐/技巧/硬件），但不要每章都罗列数字，融入描写即可。";
+}
+/* 朋友名单（注入 prompt，让朋友自然出现在生活里） */
+function friendsContext(){
+  const fs = STATE.friends || [];
+  if(!fs.length) return "【朋友】暂无深交的朋友。";
+  return "【朋友】周茂文的朋友：" + fs.map(f => f.name + "（" + f.role + "）").join("、") + "——他们会自然出现在他的大学生活里（宿舍、上课、聚会、帮忙），有各自的性格和事情。";
+}
+/* 随机事件场景（按在场女生阶段抽取，注入 prompt 丰富日常） */
+function eventSceneContext(present){
+  const g = (present && present.length) ? present[0] : null;
+  const phase = g ? phaseOf(g).id : "stranger";
+  const pool = CONFIG.event_pool[phase] || CONFIG.event_pool.stranger;
+  return "【本章可用的场景素材】" + (pool.join("、")) + "——写剧情时可按需自然选取 1-2 个场景展开，不要全部堆砌，也可不用于本段。";
 }
 /* 已认识全部女生的关系线摘要 */
 function flagsTextAll(){
@@ -1853,6 +1878,7 @@ function applyChapterFx(text){
     // 系统金手指提示：AI 以一行叙述文字写出系统消息
     showStory('【系统】叮——检测到' + (g ? g.name + ' ' : '') + '性冲动上升，淫欲值 +' + actual + '，当前余额 ' + fmt(STATE.lust) + '。');
   }
+  checkAchievements();   // 章节结算触发成就（系统提示音）
   save();
 }
 /* 邂逅新女生（40% 概率；dock + 强制 100%）：生成角色卡并加入在场 */
@@ -2894,11 +2920,38 @@ function buyAsset(k, name){
 }
 
 /* ---------- 成就 ---------- */
+/* 从资产池随机抽一件指定分类资产（car/house/luxury），返回名字 */
+function rewardAsset(kind){
+  try{
+    if(typeof ASSET_POOL === "undefined" || !ASSET_POOL[kind] || !ASSET_POOL[kind].length) return null;
+    const pool = ASSET_POOL[kind].filter(a => !(STATE.assets[kind] || []).includes(a.name));
+    const pick = (pool.length ? pool : ASSET_POOL[kind])[Math.floor(rng() * (pool.length ? pool.length : ASSET_POOL[kind].length))];
+    if(!STATE.assets[kind]) STATE.assets[kind] = [];
+    STATE.assets[kind].push(pick.name);
+    return pick.name;
+  }catch(e){ return null; }
+}
 function checkAchievements(){
   CONFIG.achievements.forEach(a => {
     if(!STATE.achievements[a.id] && a.check()){
       STATE.achievements[a.id] = true;
-      showStory('🏆 达成成就：' + a.name + ' —— ' + a.desc);
+      // 发放奖励
+      let rewardTxt = "";
+      const r = a.reward || {};
+      if(r.lust){
+        STATE.lust += r.lust;
+        STATE.totalLustGain += r.lust;
+        rewardTxt += "淫欲值 +" + r.lust;
+      }
+      if(r.cash){
+        STATE.cash += r.cash;
+        rewardTxt += (rewardTxt ? "、" : "") + "现金 ¥" + fmt(r.cash);
+      }
+      if(r.asset){
+        const name = rewardAsset(r.asset);
+        if(name) rewardTxt += (rewardTxt ? "、" : "") + "奖励资产「" + name + "」";
+      }
+      showStory('【系统】叮——达成成就「' + a.name + '」：' + a.desc + (rewardTxt ? "。奖励：" + rewardTxt : "。"));
     }
   });
 }
