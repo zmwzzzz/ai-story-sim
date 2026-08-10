@@ -810,7 +810,7 @@ function attrCN(key){
   const a = CONFIG.attrs.find(x=>x.key===key);
   return a ? a.name : key;
 }
-function getAttr(key){ return STATE.attrs[key] ?? 55; }
+function getAttr(key){ return (STATE.attrs[key] !== undefined && STATE.attrs[key] !== null) ? STATE.attrs[key] : 55; }
 function girlById(id){ return STATE.girls[id]; }
 
 /* ============================================================================
@@ -1018,7 +1018,7 @@ function applyFx(g, fx){
     else if(k === "mood") g.mood = clamp(g.mood + v, 0, CONFIG.engine.maxMood);
     else if(k === "energy") STATE.energy = clamp(STATE.energy + v, 0, CONFIG.engine.maxEnergy);
     else if(CONFIG.attrs.some(a=>a.key===k))
-      STATE.attrs[k] = clamp((STATE.attrs[k] ?? 55) + v, CONFIG.engine.attrMin, CONFIG.engine.attrMax);
+      STATE.attrs[k] = clamp((STATE.attrs[k] !== undefined && STATE.attrs[k] !== null) ? STATE.attrs[k] + v : 55 + v, CONFIG.engine.attrMin, CONFIG.engine.attrMax);
   }
 }
 
@@ -1195,7 +1195,7 @@ async function callAI(systemPrompt, userPrompt, onChunk){
   if(!resp.body){
     // 无流支持则回落非流式
     const data = await resp.json();
-    const txt = data?.choices?.[0]?.message?.content;
+    const txt = (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) ? data.choices[0].message.content : "";
     if(!txt) throw new Error("AI 返回为空");
     if(onChunk) onChunk(txt);
     return txt.trim();
@@ -1218,7 +1218,7 @@ async function callAI(systemPrompt, userPrompt, onChunk){
       if(payload === "[DONE]") continue;
       try{
         const j = JSON.parse(payload);
-        const delta = j.choices?.[0]?.delta?.content || "";
+        const delta = (j && j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content) ? j.choices[0].delta.content : "";
         if(delta){
           full += delta;
           if(onChunk) onChunk(delta);
@@ -1971,7 +1971,7 @@ function buySkill(id){
   if(sk.fx.skill) STATE.skills[sk.fx.skill] = true;
   if(sk.fx.attr){
     Object.entries(sk.fx.attr).forEach(([k,v]) => {
-      STATE.attrs[k] = clamp((STATE.attrs[k] ?? 55) + v, CONFIG.engine.attrMin, CONFIG.engine.attrMax);
+      STATE.attrs[k] = clamp((STATE.attrs[k] !== undefined && STATE.attrs[k] !== null) ? STATE.attrs[k] + v : 55 + v, CONFIG.engine.attrMin, CONFIG.engine.attrMax);
     });
   }
   showStory('✅ 学习 ' + sk.name + ' 成功！');
