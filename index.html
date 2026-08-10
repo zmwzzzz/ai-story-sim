@@ -755,6 +755,7 @@ function ensureStateCompat(){
   if(!STATE.friends) STATE.friends = [];   // 旧档兼容：无则空，激活时生成核心 2 人
   if(STATE.playerDeflowered === undefined) STATE.playerDeflowered = false;
   if(STATE.bound === undefined) STATE.bound = true; // 旧存档兼容：已有数据 = 已绑定
+  if(STATE.timeSlot === undefined) STATE.timeSlot = 0; // 旧档兼容：时段从清晨开始
   // 角色卡记忆兼容
   Object.values(STATE.girls).forEach(g => {
     if(!g.memories) g.memories = [];
@@ -828,6 +829,7 @@ function defaultState(){
   });
   return {
     day: 1,
+    timeSlot: 0,                // 时段 0-4（清晨/上午/下午/傍晚/深夜），满 4 进新一天
     actionPoints: CONFIG.engine.actionPoints,
     lust: 0,                    // 开局 0，系统绑定后 +500
     totalLustGain: 0,
@@ -1331,21 +1333,12 @@ async function activateSystem(){
   save();
   renderMain();
 }
-function renderTopbar(){
-  return '<div class="topbar">' +
-    '<span class="lust-badge">💜 ' + fmt(STATE.lust) + '</span>' +
-    '<span class="badge">第 ' + STATE.day + ' 天</span>' +
-    '<span class="badge">⚡行动 ' + STATE.actionPoints + '/' + CONFIG.engine.actionPoints + '</span>' +
-    '<button class="icon-btn" onclick="showSystem()">⚙️ 系统</button>' +
-  '</div>';
-}
 function fmt(n){
   if(n >= 10000) return (n/10000).toFixed(1) + '万';
   return Math.floor(n).toLocaleString();
 }
 function renderMain(){
   const app = $("#app");
-  const known = Object.values(STATE.girls).filter(g => g.met);
   if(!STATE.bound){
     // 系统未绑定 → 显示绑定剧情入口
     app.innerHTML = '<div class="card" style="text-align:center;padding:30px 16px">' +
@@ -1360,9 +1353,7 @@ function renderMain(){
   }
   app.innerHTML = renderTopbar() +
     '<div class="story-box" id="storyBox"></div>' +
-    '<div id="actionArea"></div>' +
-    '<button class="btn primary" onclick="encounter()">🚶 探索·邂逅新女生（1 行动点）</button>' +
-    '<button class="btn ghost" onclick="nextDay()">🌙 结束今天（过天）</button>';
+    '<div id="actionArea"></div>';
   // 保留已有剧情内容（renderMain 可能因过天/定性等被重复调用，不覆盖玩家已读文字）
   const old = _prevStoryHTML;
   const box = $("#storyBox");
@@ -1371,31 +1362,51 @@ function renderMain(){
     else if(!box.childNodes.length){ box.innerHTML = '<span class="sys-note">' + CONFIG.fallback.intro + '</span>'; }
   }
   _prevStoryHTML = null;
-  renderActionArea();
+  renderMainOptions();
 }
-function renderActionArea(){
+/* 主界面选项：互动式小说的"行动选择"（自由邂逅，无行动点限制） */
+function renderMainOptions(){
   const area = $("#actionArea");
   if(!area) return;
   const known = Object.values(STATE.girls).filter(g => g.met);
-  let html = '<div class="hint" style="margin:8px 0 6px">— 已认识 ' + known.length + ' 人，选择一人互动 —</div>';
-  if(known.length === 0){
-    html += '<div class="hint">还没有认识的人，先去探索邂逅吧。</div>';
-  } else {
+  let html = '<div class="hint" style="margin:8px 0 6px">— 接下来做什么？—</div>';
+  html += '<div class="opt"><button class="btn primary" onclick="encounter()">🚶 去校园里走走（可能遇到新的人）</button></div>';
+  // 已认识的女生（可攻略对象）
+  if(known.length){
     known.forEach(g => {
       const ph = phaseOf(g);
-      const acts = ph.acts.join(' / ');
-      html += '<div class="girl-card" onclick="' + (g.busy ? 'alert(\'' + g.name + '今天忙，改天再约\')' : 'openInteract(\'' + g.id + '\')') + '">' +
-        '<div class="girl-avatar">' + g.emoji + '</div>' +
-        '<div class="girl-info">' +
-          '<div class="g-name">' + g.name + (g.role === "main" ? ' <span class="tag main">女主</span>' : g.role === "side" ? ' <span class="tag side">女配</span>' : g.role === "undef" ? ' <span class="tag">未定性</span>' : '') + (g.harem ? ' <span class="tag harem">后宫</span>' : '') + (g.busy ? ' <span class="tag" style="color:var(--text-muted)">忙</span>' : '') + '</div>' +
-          '<div class="g-meta">' + ph.name + ' · 可做：' + acts + '</div>' +
-          '<div class="g-bar"><i style="width:' + g.aff + '%"></i></div>' +
-        '</div>' +
-        '<div class="girl-side"><div class="g-lust">🔥' + g.lust + '</div><div class="g-state">好感 ' + g.aff + '</div></div>' +
-      '</div>';
+      const tag = g.role === "main" ? ' <span class="tag main">女主</span>' : g.role === "side" ? ' <span class="tag side">女配</span>' : g.role === "undef" ? ' <span class="tag">未定性</span>' : '';
+      html += '<div class="opt"><button class="btn" ' + (g.busy ? 'disabled' : 'onclick="openInteract(\'' + g.id + '\')"') + '>💬 去找 ' + g.name + tag + ' <span class="req">' + ph.name + ' · 好感' + g.aff + (g.busy ? ' · 忙' : '') + '</span></button></div>';
     });
   }
+  html += '<div class="opt"><button class="btn" onclick="switchTab(\'shop\')">🛍️ 去商城逛逛（💜 ' + fmt(STATE.lust) + '）</button></div>';
+  html += '<div class="opt"><button class="btn ghost" onclick="switchTab(\'relations\')">📋 关系网 · 系统面板</button></div>';
   area.innerHTML = html;
+}
+function renderTopbar(){
+  return '<div class="topbar">' +
+    '<span class="lust-badge">💜 ' + fmt(STATE.lust) + '</span>' +
+    '<span class="topbar-day">第 ' + STATE.day + ' 天 · ' + timeSlotCN() + '</span>' +
+    '<button class="btn small" onclick="switchTab(\'ai\')">⚙️</button>' +
+  '</div>';
+}
+/* 时段中文（互动式小说轻量时间，4 时段循环） */
+function timeSlotCN(){
+  return ["清晨","上午","下午","傍晚","深夜"][STATE.timeSlot || 0] || "上午";
+}
+/* 推进时间：每次选择消耗一个时段，走完 4 时段进入新一天（自动刷新商城/重置忙碌） */
+function advanceTime(){
+  if(STATE.timeSlot === undefined) STATE.timeSlot = 0;
+  STATE.timeSlot++;
+  if(STATE.timeSlot > 4){
+    STATE.timeSlot = 0;
+    STATE.day++;
+    refreshDailyShop();
+    Object.values(STATE.girls).forEach(g => { g.busy = false; });
+    // 新一天提示
+    showStory('—— 🌙 夜深了，新的一天（第 ' + STATE.day + ' 天）开始了 ——');
+  }
+  save();
 }
 function showStory(text){
   const box = $("#storyBox");
@@ -1497,9 +1508,8 @@ function renderActButtons(g){
   });
   area.innerHTML = html;
 }
-/* 选项可用性：体力足够 + 属性达标 */
+/* 选项可用性：属性达标（行动点机制已移除，不限制次数） */
 function optionUsable(opt){
-  if(opt.cost && STATE.actionPoints < opt.cost) return false;
   if(opt.check && getAttr(opt.check.attr) < 50) return false;
   return true;
 }
@@ -1519,10 +1529,6 @@ function playbookText(g){
 async function chooseAct(gid, act){
   const g = girlById(gid);
   if(!g || UI.typing) return;
-  if(STATE.actionPoints <= 0){
-    showStory('今天行动点用完了，结束今天休息吧。');
-    return;
-  }
   const opts = CONFIG.interactions[act];
   if(!opts) return;
   // 收集当前可触发的剧情分支（跨回合剧情线，条件满足才出现）
@@ -1587,6 +1593,7 @@ async function doAct(optIdx){
   const opt = ev.opts[optIdx];
   if(!g || !opt) return;
   clearStory(); // 新场景开始，清空旧文字（生成过的内容已停留可见）
+  advanceTime(); // 互动消耗一个时段（不限制行动次数）
   if(!optionUsable(opt)){
     showStory('条件不足，无法这么做。');
     return;
@@ -1598,7 +1605,6 @@ async function doAct(optIdx){
     return;
   }
   UI.typing = true;
-  STATE.actionPoints -= opt.cost;
   // 判定
   let roll;
   if(opt.check){
@@ -1662,12 +1668,12 @@ async function doAct(optIdx){
   renderTopbarStatic();
   save();
   UI.typing = false;
-  renderActionArea();
+  renderMainOptions();
   // 性爱场景单独处理
   if(ev.act === "性爱"){
     sexualScene(g, opt, roll);
   } else {
-    setTimeout(() => openInteract(ev.gid), 800);
+    setTimeout(() => renderMain(), 800);
   }
 }
 /* 剧情分支处理：判定 → 写标记/里程碑 → AI 生成 → 结算 */
@@ -1689,7 +1695,7 @@ async function doBranch(bi){
     return;
   }
   UI.typing = true;
-  STATE.actionPoints -= bo.cost;
+  advanceTime(); // 分支剧情消耗一个时段
   // 判定
   let roll;
   if(bo.check){
@@ -1753,8 +1759,8 @@ async function doBranch(bi){
   renderTopbarStatic();
   save();
   UI.typing = false;
-  renderActionArea();
-  setTimeout(() => openInteract(ev.gid), 800);
+  renderMainOptions();
+  setTimeout(() => renderMain(), 800);
 }
 function renderTopbarStatic(){
   const top = document.querySelector('.topbar');
@@ -1792,11 +1798,11 @@ async function sexualScene(g, opt, roll){
         area.innerHTML =
           '<button class="btn primary" onclick="enrollHarem(\'' + g.id + '\')">👑 收入后宫</button>' +
           '<button class="btn ghost" onclick="declineHarem(\'' + g.id + '\')">暂不（她仍可再试）</button>' +
-          '<button class="btn ghost" onclick="openInteract(\'' + g.id + '\')">继续互动</button>';
+          '<button class="btn ghost" onclick="renderMain()">返回主界面</button>';
       }
     }, 500);
   } else {
-    setTimeout(() => openInteract(g.id), 800);
+    setTimeout(() => renderMain(), 800);
   }
   save();
 }
@@ -1813,30 +1819,26 @@ function enrollHarem(gid){
   showStory('👑 ' + g.name + ' 正式进入后宫！她将接纳后宫内的其他女生。');
   checkAchievements();
   save();
-  setTimeout(() => openInteract(gid), 600);
+  setTimeout(() => renderMain(), 600);
 }
 function declineHarem(gid){
   showStory('你选择暂时不收编她。她依然留在你的关系网里，未来还有机会。');
   save();
-  setTimeout(() => openInteract(gid), 600);
+  setTimeout(() => renderMain(), 600);
 }
 
 /* ---------- 邂逅机制 ---------- */
 async function encounter(){
   if(UI.typing) return;
-  if(STATE.actionPoints <= 0){
-    showStory('行动点不足，无法探索。');
-    return;
-  }
   UI.typing = true;
   clearStory(); // 新场景开始
-  STATE.actionPoints -= 1;
+  advanceTime(); // 推进一个时段
   showStory('你走出宿舍，在校园里逛了逛……');
   // 20% 概率遇到新朋友（男生，随机名+随机身份）
   if(Math.random() < 0.20){
     await encounterFriend();
     UI.typing = false;
-    renderActionArea();
+    renderMainOptions();
     save();
     return;
   }
@@ -1868,7 +1870,7 @@ async function encounter(){
   }
   showStory('📌 ' + ng.name + ' 已进入关系网（未定性），你可以在关系网中决定她的定位。');
   checkMilestones(ng);
-  renderActionArea();
+  renderMainOptions();
   save();
   UI.typing = false;
 }
@@ -1933,21 +1935,7 @@ async function encounterFriend(){
 }
 
 /* ---------- 过天 ---------- */
-function nextDay(){
-  if(UI.typing) return;
-  advanceDay();
-  // 刷新商城（每日）
-  refreshDailyShop();
-  clearStory(); // 新的一天开始
-  showStory('🌙 第 ' + (STATE.day - 1) + ' 天结束，新的一天开始了。' + (CONFIG.ai.endpoint ? '' : ''));
-  checkAchievements();
-  save();
-  if(STATE.day > CONFIG.engine.maxDays){
-    endGame();
-    return;
-  }
-  renderMain();
-}
+/* ---------- 过天：由时段推进自动触发（advanceTime），无独立按钮 ---------- */
 
 /* ---------- 商城刷新 ---------- */
 function refreshDailyShop(){
