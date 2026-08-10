@@ -309,7 +309,8 @@ const CONFIG = {
     ],
   },
   girl_emojis: ["📚","☀️","💃","🩺","☕","🎧","🌸","🎯","💼","🎀","📻","🏆","🥋","📖","🍜","📋","🩺","🎭","💻","📸","🧠","📷","🗣️","💼","🎤","🏊","💝","🏠","☕","🍵"],
-  girl_count: { main: 5, side: 3 },   // 女主 5 + 女配 3
+  girl_count: { main: 5, side: 3 },   // 女主 5 + 女配 3（上限）
+  initialGirls: { main: 1, side: 1 }, // 开局仅生成 1 女主 + 1 女配，其余靠邂逅
 
   /* ---------- XP 池（60 种，每个女生专属一个，不重复；无血腥/死亡/屎） ---------- */
   xp_pool: [
@@ -690,6 +691,7 @@ function ensureStateCompat(){
   if(!STATE.shopState) STATE.shopState = { day: 0, items: [], assets: { car: [], house: [], luxury: [] }, manualItemRefreshes: 0, manualAssetRefreshes: 0 };
   if(!STATE.friends || !STATE.friends.length) STATE.friends = generateFriends();
   if(STATE.playerDeflowered === undefined) STATE.playerDeflowered = false;
+  if(STATE.bound === undefined) STATE.bound = true; // 旧存档兼容：已有数据 = 已绑定
   // 角色卡记忆兼容
   Object.values(STATE.girls).forEach(g => {
     if(!g.memories) g.memories = [];
@@ -745,14 +747,14 @@ function importSave(file){
 
 function defaultState(){
   const girls = {};
-  generateGirls().forEach(g=>{
+  generateGirls({ countMain: CONFIG.initialGirls.main, countSide: CONFIG.initialGirls.side }).forEach(g=>{
     girls[g.id] = {
       ...g,
-      aff: 5,                 // 好感
+      aff: 10,                // 初始好感（微微认识）
       lust: 0,                // 欲望值 0-100
       mood: 70,               // 心情
       phase: "stranger",
-      met: false,             // 是否已认识
+      met: true,              // 初始角色：已认识
       orgasmCount: 0,         // 高潮次数
       creampieCount: 0,       // 内射次数
       harem: false,           // 是否后宫
@@ -763,10 +765,11 @@ function defaultState(){
   return {
     day: 1,
     actionPoints: CONFIG.engine.actionPoints,
-    lust: CONFIG.lust.startValue,
+    lust: 0,                    // 开局 0，系统绑定后 +500
     totalLustGain: 0,
     totalCash: 0,
     cash: 0,
+    bound: false,               // 系统是否已绑定（false 时显示绑定剧情）
     energy: 100,
     mood: 75,
     attrs: { ...CONFIG.startAttrs },
@@ -836,21 +839,22 @@ function pickName(pool, used){
   used.add(name);
   return name;
 }
-function generateGirls(){
+function generateGirls(opts){
+  opts = opts || { countMain: CONFIG.initialGirls.main, countSide: CONFIG.initialGirls.side };
   const pool = CONFIG.girl_pool;
   const personalities = shuffleArr(pool.personality);
   const identities  = shuffleArr(pool.identity);
   const exps        = shuffleArr(pool.exp);
   const xps         = shuffleArr(CONFIG.xp_pool);
   const namePool = (typeof NAME_POOL !== "undefined" && NAME_POOL.female) ? NAME_POOL.female : ["小雅","小梦","小雨","小月","小婷"];
-  const usedNames = new Set();
+  const usedNames = new Set(Object.values(STATE ? STATE.girls : {}).map(g => g.name).filter(Boolean));
   const girls = [];
-  let idSeq = 0;
-  // 女主 5 名
-  for(let i = 0; i < CONFIG.girl_count.main; i++){
+  // 女主
+  for(let i = 0; i < (opts.countMain || 0); i++){
     const exp = exps[i];
+    const slot = nextFreeSlot("g", CONFIG.girl_count.main);
     girls.push({
-      id: "g" + (i + 1),
+      id: "g" + slot,
       role: "main",
       type: "长",
       name: pickName(namePool, usedNames),
@@ -861,14 +865,14 @@ function generateGirls(){
       emoji: CONFIG.girl_emojis[Math.floor(Math.random() * CONFIG.girl_emojis.length)],
       firstMeet: "在校园里遇见的" + identities[i] + "，你们的故事从一次普通的相遇开始。",
     });
-    idSeq = i + 1;
   }
-  // 女配 3 名（长/中/短）
+  // 女配
   const sideTypes = ["长","中","短"];
-  for(let i = 0; i < CONFIG.girl_count.side; i++){
+  for(let i = 0; i < (opts.countSide || 0); i++){
     const exp = exps[CONFIG.girl_count.main + i];
+    const slot = nextFreeSlot("s", CONFIG.girl_count.side);
     girls.push({
-      id: "s" + (i + 1),
+      id: "s" + slot,
       role: "side",
       type: sideTypes[i % sideTypes.length],
       name: pickName(namePool, usedNames),
@@ -881,6 +885,13 @@ function generateGirls(){
     });
   }
   return girls;
+}
+/* 找下一个空闲的角色槽位 */
+function nextFreeSlot(prefix, max){
+  for(let i = 1; i <= max; i++){
+    if(!STATE || !STATE.girls[prefix + i]) return i;
+  }
+  return -1; // 满
 }
 function generateFriends(){
   const count = CONFIG.friend_count.min + Math.floor(Math.random() * (CONFIG.friend_count.max - CONFIG.friend_count.min + 1));
@@ -1238,6 +1249,15 @@ async function callAI(systemPrompt, userPrompt, onChunk){
 const UI = { screen: "main", tab: "status", selectedGirl: null, currentEvent: null, typing: false };
 
 /* ---------- 主界面渲染 ---------- */
+/* 系统绑定：开局触发 */
+async function activateSystem(){
+  if(STATE.bound) return;
+  STATE.bound = true;
+  STATE.lust = CONFIG.lust.startValue;
+  STATE.totalLustGain = CONFIG.lust.startValue;
+  save();
+  renderMain();
+}
 function renderTopbar(){
   return '<div class="topbar">' +
     '<span class="lust-badge">💜 ' + fmt(STATE.lust) + '</span>' +
@@ -1253,6 +1273,18 @@ function fmt(n){
 function renderMain(){
   const app = $("#app");
   const known = Object.values(STATE.girls).filter(g => g.met);
+  if(!STATE.bound){
+    // 系统未绑定 → 显示绑定剧情入口
+    app.innerHTML = '<div class="card" style="text-align:center;padding:30px 16px">' +
+      '<h1 class="page-title">' + CONFIG.title + '</h1>' +
+      '<p class="page-sub">' + CONFIG.subtitle + '</p>' +
+      '<div class="story-box" id="storyBox" style="min-height:100px">' +
+      '<span class="sys-note">大一开学，你踏进松江大学城校园的那一刻，脑海中突然多了一个声音——「淫欲系统已绑定就绪，等待激活」。</span>' +
+      '</div>' +
+      '<button class="btn primary" onclick="activateSystem()">🔓 激活淫欲系统（获得 500 淫欲值 + 开局礼包）</button>' +
+      '</div>';
+    return;
+  }
   app.innerHTML = renderTopbar() +
     '<div class="story-box" id="storyBox"><span class="sys-note">' + CONFIG.fallback.intro + '</span></div>' +
     '<div id="actionArea"></div>' +
@@ -1593,7 +1625,11 @@ async function encounter(){
 }
 function makeNewGirl(){
   const pool = CONFIG.girl_pool;
-  const idx = "x" + Date.now();
+  // 优先填充空女主/女配槽位
+  let slot = nextFreeSlot("g", CONFIG.girl_count.main);
+  let role = "main";
+  if(slot < 0) { slot = nextFreeSlot("s", CONFIG.girl_count.side); role = "side"; }
+  const id = slot > 0 ? (role === "main" ? "g" : "s") + slot : ("x" + Date.now());
   const personality = pick(pool.personality);
   const identity = pick(pool.identity);
   const exp = pick(pool.exp);
@@ -1602,8 +1638,8 @@ function makeNewGirl(){
   const usedNames = new Set(Object.values(STATE.girls).map(g => g.name));
   const name = pickName(namePool, usedNames);
   return {
-    id: idx,
-    role: "undef",
+    id: id,
+    role: slot > 0 ? role : "undef",
     type: "短",
     name: name,
     personality: personality + "，" + identity + "，" + exp.text,
@@ -2044,7 +2080,7 @@ function renderCards(){
   const content = $("#sysContent");
   if(!content) return;
   let html = '<div class="card"><h3 style="margin-bottom:8px">🧬 主角快照</h3><div style="white-space:pre-wrap;font-size:12px;line-height:1.8">' + escHtml(playerSnapshotMD()) + '</div></div>';
-  const cards = Object.values(STATE.girls).filter(g => g.harem || g.role === "main" || g.role === "side" || g.role === "undef");
+  const cards = Object.values(STATE.girls).filter(g => g.met && (g.harem || g.role === "main" || g.role === "side" || g.role === "undef"));
   if(!cards.length){
     html += '<div class="hint">还没有重要角色。</div>';
   }
@@ -2060,7 +2096,7 @@ function escHtml(s){
 function downloadAllCards(){
   let md = "# 淫欲系统 · 角色档案\n\n";
   md += playerSnapshotMD() + "\n";
-  Object.values(STATE.girls).filter(g => g.harem || g.role === "main" || g.role === "side" || g.role === "undef").forEach(g => {
+  Object.values(STATE.girls).filter(g => g.met && (g.harem || g.role === "main" || g.role === "side" || g.role === "undef")).forEach(g => {
     md += "\n" + girlCardMD(g) + "\n";
   });
   const blob = new Blob([md], { type: "text/markdown" });
