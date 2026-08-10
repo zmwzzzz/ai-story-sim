@@ -1713,7 +1713,7 @@ function renderSidebar(){
     '<div class="sidebar-list">' + items + '</div>' +
     '<div class="sidebar-foot">' +
     '<button class="btn primary" onclick="backToLatest()">⬇ 回到最新章节</button>' +
-    '<button class="btn ghost" style="margin-top:8px" onclick="switchTab(\'ai\')">⚙️ AI 设置</button>' +
+    '<button class="btn ghost" style="margin-top:8px" onclick="switchTab(\'ai\')">⚙️ 设置（AI · 存档）</button>' +
     '</div>';
 }
 /* 打开/关闭侧边栏 */
@@ -2535,14 +2535,16 @@ function showSystem(){
   UI.tab = "status";
   renderSystem();
 }
-/* AI 设置页（唯一保留的系统入口，用于填 key；其余游戏面板已内化到剧情） */
+/* 设置页：AI 设置 + 存档管理（唯一保留的系统入口，其余游戏面板已内化到剧情） */
 function renderSystem(){
   const app = $("#app");
   app.innerHTML = renderTopbar() +
     '<div class="sys-view">' +
     '<div id="sysContent"></div>' +
+    '<div id="saveContent"></div>' +
     '<button class="btn ghost" onclick="renderMain()">← 返回小说</button></div>';
   renderAiSettings();
+  renderSave();
 }
 function switchTab(tab){
   UI.tab = tab;
@@ -2875,7 +2877,7 @@ function checkAchievements(){
 
 /* ---------- 存档页 ---------- */
 function renderSave(){
-  const content = $("#sysContent");
+  const content = $("#saveContent");
   if(!content) return;
   let html = '<div class="card"><h3 style="margin-bottom:8px">💾 存档管理</h3>';
   html += '<div class="hint">当前档：第 ' + CURRENT_SLOT + ' 档 · 第 ' + STATE.day + ' 天</div>';
