@@ -169,13 +169,12 @@ const CONFIG = {
 
   /* ---------- AI 配置（OpenAI 兼容接口） ----------
    * 默认已配 DeepSeek 官方 API（支持浏览器 CORS，可直接用）
-   * 实测你的 key 可用模型：deepseek-v4-flash / deepseek-v4-pro（均为推理模型）
-   * v4 系列会输出 reasoning_content 推理 + content 正文，max_tokens 需较大（2000+）
-   * endpoint 留空或填错 = 不调用 AI，用本地文案池（可玩但剧情平淡）
+   * 注意：apiKey 不在代码里（公开仓库安全），在游戏内「⚙️ AI 设置」填，存本机浏览器
+   * 实测可用模型：deepseek-v4-flash / deepseek-v4-pro（推理模型，maxTokens 需较大）
    */
   ai: {
     endpoint: "https://api.deepseek.com/v1/chat/completions",
-    apiKey:   "sk-1c6f479667f846cb96924845f142f680",
+    apiKey:   "",
     model:    "deepseek-v4-flash",
     nsfwLevel: 3,
     temperature: 0.95,
@@ -1674,6 +1673,7 @@ function renderSystem(){
       '<div class="tab' + (UI.tab === "shop" ? " on" : "") + '" onclick="switchTab(\'shop\')">🛒 商城</div>' +
       '<div class="tab' + (UI.tab === "save" ? " on" : "") + '" onclick="switchTab(\'save\')">💾 存档</div>' +
       '<div class="tab' + (UI.tab === "card" ? " on" : "") + '" onclick="switchTab(\'card\')">📄 角色档案</div>' +
+      '<div class="tab' + (UI.tab === "ai" ? " on" : "") + '" onclick="switchTab(\'ai\')">⚙️ AI 设置</div>' +
     '</div>' +
     '<div id="sysContent"></div>' +
     '<button class="btn ghost" onclick="renderMain()">← 返回主界面</button>';
@@ -1681,10 +1681,41 @@ function renderSystem(){
   else if(UI.tab === "rel") renderRelations();
   else if(UI.tab === "shop") renderShop();
   else if(UI.tab === "save") renderSave();
-  else renderCards();
+  else if(UI.tab === "card") renderCards();
+  else renderAiSettings();
 }
 function switchTab(tab){
   UI.tab = tab;
+  renderSystem();
+}
+/* ---------- AI 设置页 ---------- */
+function renderAiSettings(){
+  const content = $("#sysContent");
+  if(!content) return;
+  const hasKey = CONFIG.ai.apiKey && CONFIG.ai.apiKey.length > 5;
+  content.innerHTML =
+    '<div class="card"><h3 style="margin-bottom:8px">⚙️ AI 设置</h3>' +
+    '<div class="hint" style="margin-bottom:8px">' + (hasKey ? "✅ 已配置 AI key，剧情由 AI 生成" : "⚠️ 未填 key，剧情用本地模板（平淡）。填 key 后 AI 实时生成剧情。") + '</div>' +
+    '<label class="lbl">API 地址（endpoint）</label>' +
+    '<input type="text" id="aiEndpoint" value="' + CONFIG.ai.endpoint + '">' +
+    '<label class="lbl">API Key（sk- 开头，只存本机浏览器）</label>' +
+    '<input type="password" id="aiKey" placeholder="sk-..." value="">' +
+    '<label class="lbl">模型（deepseek-v4-flash / deepseek-v4-pro）</label>' +
+    '<input type="text" id="aiModel" value="' + CONFIG.ai.model + '">' +
+    '<button class="btn primary" onclick="saveAiSettings()">💾 保存 AI 设置</button>' +
+    '<div class="hint" style="margin-top:8px">DeepSeek key 在 platform.deepseek.com 申请。key 只保存在你的浏览器本地，不上传任何服务器。</div>' +
+    '</div>';
+}
+function saveAiSettings(){
+  const ep = $("#aiEndpoint").value.trim();
+  const key = $("#aiKey").value.trim();
+  const model = $("#aiModel").value.trim();
+  if(!ep || !model){ alert("API 地址和模型不能为空"); return; }
+  CONFIG.ai.endpoint = ep;
+  if(key) CONFIG.ai.apiKey = key;
+  CONFIG.ai.model = model;
+  saveAiConfig(ep, key || CONFIG.ai.apiKey, model);
+  alert("AI 设置已保存！" + (key ? "已填入 key。" : "key 保持原样。"));
   renderSystem();
 }
 /* 状态页 */
@@ -2067,7 +2098,27 @@ function resetGame(){
 }
 
 /* ---------- 初始化 ---------- */
+/* ---------- AI 设置（本地存储，不进代码） ---------- */
+const AI_CFG_KEY = "lust_system_ai_cfg";
+function loadAiConfig(){
+  try{
+    const raw = localStorage.getItem(AI_CFG_KEY);
+    if(raw){
+      const cfg = JSON.parse(raw);
+      if(cfg.endpoint) CONFIG.ai.endpoint = cfg.endpoint;
+      if(cfg.apiKey) CONFIG.ai.apiKey = cfg.apiKey;
+      if(cfg.model) CONFIG.ai.model = cfg.model;
+    }
+  }catch(e){}
+}
+function saveAiConfig(endpoint, apiKey, model){
+  try{
+    localStorage.setItem(AI_CFG_KEY, JSON.stringify({ endpoint, apiKey, model }));
+  }catch(e){}
+}
+
 function init(){
+  loadAiConfig();
   load();
   // 旧存档兼容
   if(!STATE.hardware) STATE.hardware = { len: CONFIG.hardware.len.init, girth: CONFIG.hardware.girth.init, dura: CONFIG.hardware.dura.init };
