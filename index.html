@@ -1290,10 +1290,18 @@ function renderMain(){
     return;
   }
   app.innerHTML = renderTopbar() +
-    '<div class="story-box" id="storyBox"><span class="sys-note">' + CONFIG.fallback.intro + '</span></div>' +
+    '<div class="story-box" id="storyBox"></div>' +
     '<div id="actionArea"></div>' +
     '<button class="btn primary" onclick="encounter()">🚶 探索·邂逅新女生（1 行动点）</button>' +
     '<button class="btn ghost" onclick="nextDay()">🌙 结束今天（过天）</button>';
+  // 保留已有剧情内容（renderMain 可能因过天/定性等被重复调用，不覆盖玩家已读文字）
+  const old = _prevStoryHTML;
+  const box = $("#storyBox");
+  if(box){
+    if(old){ box.innerHTML = old; }
+    else if(!box.childNodes.length){ box.innerHTML = '<span class="sys-note">' + CONFIG.fallback.intro + '</span>'; }
+  }
+  _prevStoryHTML = null;
   renderActionArea();
 }
 function renderActionArea(){
@@ -1320,15 +1328,21 @@ function renderActionArea(){
   }
   area.innerHTML = html;
 }
-function showStory(text, append){
+function showStory(text){
   const box = $("#storyBox");
   if(!box) return;
-  if(!append) box.innerHTML = '';
   const node = document.createElement('div');
   node.style.marginBottom = '10px';
   node.textContent = text;
   box.appendChild(node);
   box.scrollTop = box.scrollHeight;
+  _prevStoryHTML = box.innerHTML; // 保存快照，renderMain 重建时可恢复
+}
+/* 清空剧情区：仅在新场景开始时调用，保证生成过的文字停留可见 */
+function clearStory(){
+  const box = $("#storyBox");
+  if(box) box.innerHTML = '';
+  _prevStoryHTML = '';
 }
 /* 流式打字机渲染：onChunk 每收到一段就追加 */
 function showStoryStream(onChunk){
@@ -1340,6 +1354,7 @@ function showStoryStream(onChunk){
   const append = (txt) => {
     node.textContent += txt;
     box.scrollTop = box.scrollHeight;
+    _prevStoryHTML = box.innerHTML;
   };
   if(typeof onChunk === "function") onChunk(append);
   return { node };
@@ -1364,6 +1379,7 @@ function typeLocalText(text, speed){
       node.textContent += text[i];
       i++;
       box.scrollTop = box.scrollHeight;
+      _prevStoryHTML = box.innerHTML;
     }, speed);
   });
 }
@@ -1373,7 +1389,10 @@ function showRollTag(result){
   if(!box) return;
   box.insertAdjacentHTML('beforeend', map[result]);
   box.scrollTop = box.scrollHeight;
+  _prevStoryHTML = box.innerHTML;
 }
+/* 剧情区快照：renderMain 重建 DOM 后恢复，避免已生成文字被覆盖 */
+let _prevStoryHTML = null;
 
 /* ---------- 互动流程 ---------- */
 function openInteract(gid){
@@ -1393,6 +1412,10 @@ function openInteract(gid){
     '<div class="story-box" id="storyBox"></div>' +
     '<div id="actButtons"></div>' +
     '<button class="btn ghost" onclick="renderMain()">← 返回</button>';
+  const oldBox = _prevStoryHTML;
+  const nb = $("#storyBox");
+  if(nb && oldBox){ nb.innerHTML = oldBox; }
+  _prevStoryHTML = null;
   renderActButtons(g);
 }
 function renderActButtons(g){
@@ -1460,6 +1483,7 @@ async function doAct(optIdx){
   const g = girlById(ev.gid);
   const opt = ev.opts[optIdx];
   if(!g || !opt) return;
+  clearStory(); // 新场景开始，清空旧文字（生成过的内容已停留可见）
   if(!optionUsable(opt)){
     showStory('条件不足，无法这么做。');
     return;
@@ -1616,6 +1640,7 @@ async function encounter(){
     return;
   }
   UI.typing = true;
+  clearStory(); // 新场景开始
   STATE.actionPoints -= 1;
   showStory('你走出宿舍，在校园里逛了逛……');
   // 20% 概率遇到新朋友（男生，随机名+随机身份）
@@ -1724,6 +1749,7 @@ function nextDay(){
   advanceDay();
   // 刷新商城（每日）
   refreshDailyShop();
+  clearStory(); // 新的一天开始
   showStory('🌙 第 ' + (STATE.day - 1) + ' 天结束，新的一天开始了。' + (CONFIG.ai.endpoint ? '' : ''));
   checkAchievements();
   save();
