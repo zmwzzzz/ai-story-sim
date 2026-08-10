@@ -170,12 +170,12 @@ const CONFIG = {
   /* ---------- AI 配置（OpenAI 兼容接口） ----------
    * 默认已配 DeepSeek 官方 API（支持浏览器 CORS，可直接用）
    * 注意：apiKey 不在代码里（公开仓库安全），在游戏内「⚙️ AI 设置」填，存本机浏览器
-   * 官方可用模型：deepseek-chat（默认，快）/ deepseek-reasoner（推理强，慢且贵，maxTokens 需较大）
+   * 实测可用模型：deepseek-v4-flash（默认，快）/ deepseek-v4-pro（推理强，maxTokens 需较大）
    */
   ai: {
     endpoint: "https://api.deepseek.com/v1/chat/completions",
     apiKey:   "",
-    model:    "deepseek-chat",
+    model:    "deepseek-v4-flash",
     nsfwLevel: 3,
     temperature: 0.95,
     maxTokens: 8000,
