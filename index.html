@@ -310,7 +310,7 @@ const CONFIG = {
   },
   girl_emojis: ["📚","☀️","💃","🩺","☕","🎧","🌸","🎯","💼","🎀","📻","🏆","🥋","📖","🍜","📋","🩺","🎭","💻","📸","🧠","📷","🗣️","💼","🎤","🏊","💝","🏠","☕","🍵"],
   girl_count: { main: 5, side: 3 },   // 女主 5 + 女配 3（上限）
-  initialGirls: { main: 1, side: 1 }, // 开局仅生成 1 女主 + 1 女配，其余靠邂逅
+  initialGirls: { main: 0, side: 0 }, // 开局不预设任何女主/女配，全部靠邂逅（邂逅生成"未定性"，由玩家手动定性）
 
   /* ---------- XP 池（60 种，每个女生专属一个，不重复；无血腥/死亡/屎） ---------- */
   xp_pool: [
@@ -1636,11 +1636,8 @@ async function encounter(){
   UI.typing = false;
 }
 function makeNewGirl(){  const pool = CONFIG.girl_pool;
-  // 优先填充空女主/女配槽位
-  let slot = nextFreeSlot("g", CONFIG.girl_count.main);
-  let role = "main";
-  if(slot < 0) { slot = nextFreeSlot("s", CONFIG.girl_count.side); role = "side"; }
-  const id = slot > 0 ? (role === "main" ? "g" : "s") + slot : ("x" + Date.now());
+  // 邂逅一律生成"未定性"，不自动占女主/女配槽位；定性由玩家在关系网手动操作
+  const id = "u" + (Object.values(STATE.girls).reduce((mx, g) => { const n = parseInt((g.id||"").replace(/^u/,""), 10); return (n > mx) ? n : mx; }, 0) + 1);
   const personality = pick(pool.personality);
   const identity = pick(pool.identity);
   const exp = pick(pool.exp);
@@ -1650,7 +1647,7 @@ function makeNewGirl(){  const pool = CONFIG.girl_pool;
   const name = pickName(namePool, usedNames);
   return {
     id: id,
-    role: slot > 0 ? role : "undef",
+    role: "undef",
     type: "短",
     name: name,
     personality: personality + "，" + identity + "，" + exp.text,
